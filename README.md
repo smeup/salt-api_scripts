@@ -1,4 +1,3 @@
-# salt-api_scripts
 This repository is for install salt-minion automatically, using salt-api, with a script.
 
 To use these scripts, please follow this guide.
