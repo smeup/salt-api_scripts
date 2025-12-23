@@ -5,14 +5,14 @@ To use these scripts, please follow this guide.
 
 Before run this scripts, check the host rm.smeup.com is reachable and on machine, the ports 22, 4505 and 4506 is opened.
 
-## Production
+## Connect to Production installation
 
 ### Register minion
 ```bash
 wget -qO- https://raw.githubusercontent.com/smeup/smeup-provider-utils/master/saltminion.sh | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
-## Testing
+## Connect to Testing installation
 
 ### Register minion
 ```bash
