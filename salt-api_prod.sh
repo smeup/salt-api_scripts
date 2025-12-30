@@ -59,8 +59,13 @@ function run_step {
 }
 
 function clean_environment {
-    rm -rf /etc/salt/pki/minion
-    cat /dev/null > /etc/salt/minion_id
+    # Only attempt cleanup if /etc/salt exists — avoid errors on fresh installs
+    if [ -d /etc/salt ]; then
+        rm -rf /etc/salt/pki/minion 2>/dev/null || true
+        if [ -f /etc/salt/minion_id ]; then
+            : > /etc/salt/minion_id
+        fi
+    fi
 }
 
 function install_jq_pkg {
