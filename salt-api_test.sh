@@ -185,5 +185,6 @@ run_step "Configurazione e avvio servizio" configure_minion
 # 7. Final Verification
 run_step "Verifica connessione" verify_installation
 
+rm -f install_salt.sh
 rm -f "$LOG_FILE" "$API_LOG"
 echo "Installazione completata con successo!"
