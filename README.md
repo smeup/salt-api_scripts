@@ -11,7 +11,7 @@ Before run this scripts, check the host rm.smeup.com is reachable and on machine
 ### Register minion
 
 ```bash
-wget -qO- https://bit.ly/saltapiprod | sudo bash -s MINION_ID USERNAME PASSWORD
+wget -qO- https://bit.ly/saltapi | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
 ## Connect to Testing installation
