@@ -154,6 +154,34 @@ function register_minion {
 function configure_minion {
     mkdir -p /etc/salt/minion.d
     printf "master: ${MASTER}\nid: ${MINION}" > /etc/salt/minion.d/id.conf
+
+    # Check if service exists
+    if ! systemctl list-unit-files | grep -q salt-minion.service; then
+        echo "Service unit missing, creating it..."
+        local BIN_PATH=$(command -v salt-minion)
+        if [ -z "$BIN_PATH" ]; then
+             echo "Error: salt-minion binary not found!"
+             return 1
+        fi
+        
+        cat <<EOF > /etc/systemd/system/salt-minion.service
+[Unit]
+Description=The Salt Minion
+Documentation=man:salt-minion(1) https://docs.saltproject.io/en/latest/contents.html
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$BIN_PATH
+Restart=on-failure
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+    fi
+
     systemctl enable salt-minion
     systemctl start salt-minion
 }
