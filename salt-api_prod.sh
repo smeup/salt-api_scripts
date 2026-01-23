@@ -91,8 +91,8 @@ function install_salt_minion {
 }
 
 function stop_services {
-    systemctl disable salt-minion
-    systemctl stop salt-minion
+    systemctl disable salt-minion 2>/dev/null || true
+    systemctl stop salt-minion 2>/dev/null || true
 }
 
 function register_minion {
