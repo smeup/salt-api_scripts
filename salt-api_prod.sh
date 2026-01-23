@@ -86,6 +86,11 @@ function install_jq_pkg {
 }
 
 function install_salt_minion {
+    # Fix for OpenSUSE 16 conflict: remove busybox-which to allow salt-minion RPM install
+    if command -v zypper > /dev/null; then
+        zypper remove -y busybox-which 2>/dev/null || true
+    fi
+
     curl -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
     sh install_salt.sh -P -X stable 3006.16
 }
