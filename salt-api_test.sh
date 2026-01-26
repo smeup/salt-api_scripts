@@ -4,6 +4,7 @@ if [ $(id -u) -ne 0 ]; then echo "Sono necessari i privilegi di root per eseguir
 
 function usage {
 	echo "Usage: `basename "$0"` [MINION-ID] [USER] [PASSWORD]" >&2
+	echo "Note: If arguments are omitted, they will be requested interactively." >&2
 }
 
 if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
@@ -11,8 +12,8 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 	exit 0
 fi
 
-if [ $# -ne 3 ]
-  then
+# Arguments are now optional, but if provided they must be all 3
+if [ $# -gt 0 ] && [ $# -ne 3 ]; then
     usage
     exit 0
 fi
@@ -20,6 +21,24 @@ fi
 MINION=$1
 USERNAME=$2
 PASSWORD=$3
+
+if [ -z "$MINION" ]; then
+    read -p "Inserisci il nome del minion (MINION-ID): " MINION
+fi
+
+if [ -z "$USERNAME" ]; then
+    read -p "Inserisci lo username: " USERNAME
+fi
+
+if [ -z "$PASSWORD" ]; then
+    read -s -p "Inserisci la password: " PASSWORD
+    echo "" # Newline after hidden input
+fi
+
+if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+    echo "Errore: Tutti i campi (minion, username, password) sono obbligatori."
+    exit 1
+fi
 MASTER=salt.smeup.com
 LOG_FILE=$(mktemp)
 API_LOG=$(mktemp)
