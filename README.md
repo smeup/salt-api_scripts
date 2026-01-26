@@ -33,7 +33,7 @@ wget -qO- https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
 ### Check master response
 
 ```bash
-curl https://rm.smeup.com/login -H 'Accept: application/x-yaml' -d username=USERNAME -d password=PASSWORD -d eauth=pam  
+curl https://rm.smeup.com/login -H 'Accept: application/x-yaml' -d username=USERNAME -d password=PASSWORD -d eauth=pam
 ```
 
 ### Test SSH key generation
@@ -45,9 +45,9 @@ curl https://rm.smeup.com/run -H "Accept: application/json" -d username=USERNAME
 ### Test connectivity
 
 ```bash
-curl https://rm.smeup.com/run -H 'Accept: application/x-yaml' -H 'Content-type: application/json' -d '[{"client":"local","tgt":"MINION_ID","fun":"test.ping","username":"USERNMANE","password":"PASSWORD","eauth": "pam"}]'
+curl https://rm.smeup.com/run -H 'Accept: application/x-yaml' -H 'Content-type: application/json' -d '[{"client":"local","tgt":"MINION_ID","fun":"test.ping","username":"USERNAME","password":"PASSWORD","eauth": "pam"}]'
 ```
 
 If you want to try connection with testing installation, change "rm.smeup.com/run" with "salt.smeup.com/run"
 
-You can also test all minions using "*" as MINION_ID.
+You can also test all minions using "\*" as MINION_ID.
