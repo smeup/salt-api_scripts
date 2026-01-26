@@ -23,15 +23,15 @@ USERNAME=$2
 PASSWORD=$3
 
 if [ -z "$MINION" ]; then
-    read -p "Inserisci il nome del minion (MINION-ID): " MINION
+    read -p "Inserisci il nome del minion (MINION-ID): " MINION < /dev/tty
 fi
 
 if [ -z "$USERNAME" ]; then
-    read -p "Inserisci lo username: " USERNAME
+    read -p "Inserisci lo username: " USERNAME < /dev/tty
 fi
 
 if [ -z "$PASSWORD" ]; then
-    read -s -p "Inserisci la password: " PASSWORD
+    read -s -p "Inserisci la password: " PASSWORD < /dev/tty
     echo "" # Newline after hidden input
 fi
 
