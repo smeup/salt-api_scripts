@@ -32,7 +32,7 @@ wget -qO- https://bit.ly/saltapitest | sudo bash -s
 ### Legacy command to register minion
 
 ```bash
-wget -qO- https://bit.ly/saltapi | sudo bash -s MINION_ID USERNAME PASSWORD
+wget -qO- https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
 ## Utility
