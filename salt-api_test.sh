@@ -22,21 +22,39 @@ MINION=$1
 USERNAME=$2
 PASSWORD=$3
 
-if [ -z "$MINION" ]; then
-    read -p "Inserisci il nome del minion (MINION-ID): " MINION < /dev/tty
-fi
+if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+    # Se lo script è in pipe, dobbiamo leggere dal terminale (/dev/tty)
+    # Altrimenti possiamo usare lo stdin standard
+    [ -t 0 ] && TTY="" || TTY="/dev/tty"
 
-if [ -z "$USERNAME" ]; then
-    read -p "Inserisci lo username: " USERNAME < /dev/tty
-fi
+    if [ -z "$MINION" ]; then
+        printf "Inserisci il nome del minion (MINION-ID): " > /dev/tty
+        read -r MINION < "$TTY"
+    fi
 
-if [ -z "$PASSWORD" ]; then
-    read -s -p "Inserisci la password: " PASSWORD < /dev/tty
-    echo "" # Newline after hidden input
+    if [ -z "$USERNAME" ]; then
+        printf "Inserisci lo username: " > /dev/tty
+        read -r USERNAME < "$TTY"
+    fi
+
+    if [ -z "$PASSWORD" ]; then
+        printf "Inserisci la password: " > /dev/tty
+        # Usiamo stty per nascondere l'input se leggiamo da /dev/tty, 
+        # oppure read -s se siamo in un terminale normale
+        if [ -n "$TTY" ]; then
+            stty -echo < /dev/tty
+            read -r PASSWORD < /dev/tty
+            stty echo < /dev/tty
+            printf "\n" > /dev/tty
+        else
+            read -s -r PASSWORD
+            printf "\n"
+        fi
+    fi
 fi
 
 if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
-    echo "Errore: Tutti i campi (minion, username, password) sono obbligatori."
+    printf "\nErrore: Tutti i campi (minion, username, password) sono obbligatori.\n" >&2
     exit 1
 fi
 MASTER=salt.smeup.com
