@@ -3,15 +3,16 @@
 This repository is for install salt-minion automatically, using salt-api, with a script.
 
 To use these scripts, please follow this guide.
-
 Before run this scripts, check the host rm.smeup.com is reachable and on machine, the ports 22, 4505 and 4506 is opened.
+
+**In this version, the script is interactive, so you need to provide the minion id, username and password after launch the script, not at the end of the command!**
 
 ## Connect to Production installation
 
 ### Register minion
 
 ```bash
-wget -qO- https://bit.ly/saltapi | sudo bash -s MINION_ID USERNAME PASSWORD
+wget -qO- https://bit.ly/saltapi | sudo bash -s
 ```
 
 ## Connect to Testing installation
@@ -25,7 +26,13 @@ First, add on your host file this value:
 ### Register minion
 
 ```bash
-wget -qO- https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
+wget -qO- https://bit.ly/saltapitest | sudo bash -s
+```
+
+### Legacy command to register minion
+
+```bash
+wget -qO- https://bit.ly/saltapi | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
 ## Utility

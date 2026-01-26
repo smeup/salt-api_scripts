@@ -28,17 +28,17 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
     [ -t 0 ] && TTY="" || TTY="/dev/tty"
 
     if [ -z "$MINION" ]; then
-        printf "Inserisci il nome del minion (MINION-ID): " > /dev/tty
+        printf "Inserisci il nome del minion (es. s<id>.001): " > /dev/tty
         read -r MINION < "$TTY"
     fi
 
     if [ -z "$USERNAME" ]; then
-        printf "Inserisci lo username: " > /dev/tty
+        printf "Inserisci username: " > /dev/tty
         read -r USERNAME < "$TTY"
     fi
 
     if [ -z "$PASSWORD" ]; then
-        printf "Inserisci la password: " > /dev/tty
+        printf "Inserisci password: " > /dev/tty
         # Usiamo stty per nascondere l'input se leggiamo da /dev/tty, 
         # oppure read -s se siamo in un terminale normale
         if [ -n "$TTY" ]; then
