@@ -5,6 +5,8 @@ This repository is for install salt-minion automatically, using salt-api, with a
 To use these scripts, please follow this guide.
 Before run this scripts, check the host rm.smeup.com is reachable and on machine, the ports 22, 4505 and 4506 is opened.
 
+When you run the script, it will check the MTU of the network interface and will warn you if it is greater than 1500.
+
 **In this version, the script is interactive, so you need to provide the minion id, username and password after launch the script, not at the end of the command!**
 
 ## Connect to Production installation
