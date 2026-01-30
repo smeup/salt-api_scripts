@@ -12,6 +12,34 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 	exit 0
 fi
 
+# 0. Check MTU (moved here to show alert before input)
+function check_mtu {
+    # Find the default interface
+    local interface
+    interface=$(ip route show default | awk '/default/ {print $5}' | head -n1)
+    
+    if [ -z "$interface" ]; then
+        echo "Warning: Could not determine the default network interface."
+        return 0
+    fi
+    
+    local mtu
+    if [ -f "/sys/class/net/$interface/mtu" ]; then
+        mtu=$(cat "/sys/class/net/$interface/mtu")
+    else
+        echo "Warning: Could not read MTU for interface $interface."
+        return 0
+    fi
+    
+    echo "Interface: $interface, MTU: $mtu"
+    
+    if [ "$mtu" -gt 1500 ]; then
+        printf "\n\033[1;33m[ATTENZIONE] L'MTU dell'interfaccia $interface è $mtu (superiore a 1500).\n"
+        printf "Questo potrebbe causare problemi di registrazione del minion.\033[0m\n\n"
+    fi
+}
+check_mtu
+
 # Arguments are now optional, but if provided they must be all 3
 if [ $# -gt 0 ] && [ $# -ne 3 ]; then
     usage
@@ -24,8 +52,8 @@ PASSWORD=$3
 
 if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
     # Se lo script è in pipe, dobbiamo leggere dal terminale (/dev/tty)
-    # Altrimenti possiamo usare lo stdin standard
-    [ -t 0 ] && TTY="" || TTY="/dev/tty"
+    # Altrimenti possiamo usare lo stdin standard (/dev/stdin)
+    [ -t 0 ] && TTY="/dev/stdin" || TTY="/dev/tty"
 
     if [ -z "$MINION" ]; then
         printf "Inserisci il nome del minion (es. s<id>.001): " > /dev/tty
@@ -40,8 +68,8 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
     if [ -z "$PASSWORD" ]; then
         printf "Inserisci password: " > /dev/tty
         # Usiamo stty per nascondere l'input se leggiamo da /dev/tty, 
-        # oppure read -s se siamo in un terminale normale
-        if [ -n "$TTY" ]; then
+        # oppure read -s se siamo in un terminale normale (/dev/stdin)
+        if [ "$TTY" = "/dev/tty" ]; then
             stty -echo < /dev/tty
             read -r PASSWORD < /dev/tty
             stty echo < /dev/tty
