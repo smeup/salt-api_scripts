@@ -65,6 +65,10 @@ You can also test all minions using "\*" as MINION_ID.
 
 For scenarios requiring a specific Salt version or a different Salt Master, use `salt-api_dev.sh`.
 
+```bash
+wget -qO- https://bit.ly/saltapidev | sudo bash -s
+```
+
 ### Features
 
 - **Interactive Master Selection**: Defaults to `rm.smeup.com` but allows override.
