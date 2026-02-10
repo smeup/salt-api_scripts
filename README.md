@@ -11,10 +11,18 @@ When you run the script, it will check the MTU of the network interface and will
 
 ## Connect to Production installation
 
-### Register minion
+### Standard Installation (All supported OS except CentOS 7)
 
 ```bash
 wget -qO- https://bit.ly/saltapi | sudo bash -s
+```
+
+### CentOS 7 (Exclusive Support)
+
+**Important:** For CentOS 7, you **must** use this specific command. The standard script does not support CentOS 7.
+
+```bash
+wget -qO- https://bit.ly/saltapicentos | sudo bash -s
 ```
 
 ## Connect to Testing installation
