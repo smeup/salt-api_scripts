@@ -247,7 +247,7 @@ function select_salt_version {
     PS3="Seleziona una versione (inserisci il numero): "
     select version in "${version_array[@]}" "Inserimento Manuale"; do
         if [ "$version" == "Inserimento Manuale" ]; then
-            read -p "Inserisci versione manuale: " SELECTED_VERSION
+            read -p "Inserisci versione manuale: " SELECTED_VERSION < /dev/tty
             break
         elif [ -n "$version" ]; then
             SELECTED_VERSION="$version"
@@ -255,7 +255,7 @@ function select_salt_version {
         else
             echo "Selezione non valida."
         fi
-    done
+    done < /dev/tty
     echo "Versione selezionata: $SELECTED_VERSION"
 }
 

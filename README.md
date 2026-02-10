@@ -17,14 +17,6 @@ When you run the script, it will check the MTU of the network interface and will
 wget -qO- https://bit.ly/saltapi | sudo bash -s
 ```
 
-### CentOS 7 (Exclusive Support)
-
-**Important:** For CentOS 7, you **must** use this specific command. The standard script does not support CentOS 7.
-
-```bash
-wget -qO- https://bit.ly/saltapicentos | sudo bash -s
-```
-
 ## Connect to Testing installation
 
 First, add on your host file this value:
@@ -84,4 +76,12 @@ curl https://rm.smeup.com/run -H 'Accept: application/x-yaml' -H 'Content-type: 
 
 If you want to try connection with testing installation, change "rm.smeup.com/run" with "salt.smeup.com/run"
 
-You can also test all minions using "\*" as MINION_ID.
+## Legacy / EOL Support
+
+### CentOS 7 (Exclusive Support)
+
+**Important:** For CentOS 7, you **must** use this specific command. The standard script does not support CentOS 7.
+
+```bash
+wget -qO- https://bit.ly/saltapicentos | sudo bash -s
+```
