@@ -2,11 +2,11 @@
 
 if [ $(id -u) -ne 0 ]; then echo "Sono necessari i privilegi di root per eseguire questo script" ; exit 1 ; fi
 
-# Check OS version (openSUSE, Debian, Ubuntu required)
+# Check OS version (CentOS 7 required)
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    if [[ "$ID" != "opensuse-leap" && "$ID" != "opensuse-tumbleweed" && "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
-        echo "Errore: Questo script è progettato per openSUSE, Debian o Ubuntu. Sistema rilevato: $NAME ($ID)"
+    if [[ "$ID" != "centos" || "$VERSION_ID" != "7" ]]; then
+        echo "Errore: Questo script è progettato specificamente per CentOS 7. Sistema rilevato: $NAME ($VERSION_ID)"
         exit 1
     fi
 else
@@ -24,14 +24,13 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 	exit 0
 fi
 
-# 0. Check MTU (moved here to show alert before input)
+# 0. Check MTU
 function check_mtu {
     # Find the default interface
     local interface
     interface=$(ip route show default | awk '/default/ {print $5}' | head -n1)
     
     if [ -z "$interface" ]; then
-        echo "Warning: Could not determine the default network interface."
         return 0
     fi
     
@@ -39,11 +38,8 @@ function check_mtu {
     if [ -f "/sys/class/net/$interface/mtu" ]; then
         mtu=$(cat "/sys/class/net/$interface/mtu")
     else
-        echo "Warning: Could not read MTU for interface $interface."
         return 0
     fi
-    
-    echo "Interface: $interface, MTU: $mtu"
     
     if [ "$mtu" -gt 1500 ]; then
         printf "\n\033[1;33m[ATTENZIONE] L'MTU dell'interfaccia $interface è $mtu (superiore a 1500).\n"
@@ -52,7 +48,7 @@ function check_mtu {
 }
 check_mtu
 
-# Arguments are now optional, but if provided they must be all 3
+# Arguments are now optional
 if [ $# -gt 0 ] && [ $# -ne 3 ]; then
     usage
     exit 0
@@ -63,8 +59,6 @@ USERNAME=$2
 PASSWORD=$3
 
 if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
-    # Se lo script è in pipe, dobbiamo leggere dal terminale (/dev/tty)
-    # Altrimenti possiamo usare lo stdin standard (/dev/stdin)
     [ -t 0 ] && TTY="/dev/stdin" || TTY="/dev/tty"
 
     if [ -z "$MINION" ]; then
@@ -79,8 +73,6 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
 
     if [ -z "$PASSWORD" ]; then
         printf "Inserisci password: " > /dev/tty
-        # Usiamo stty per nascondere l'input se leggiamo da /dev/tty, 
-        # oppure read -s se siamo in un terminale normale (/dev/stdin)
         if [ "$TTY" = "/dev/tty" ]; then
             stty -echo < /dev/tty
             read -r PASSWORD < /dev/tty
@@ -97,6 +89,7 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
     printf "\nErrore: Tutti i campi (minion, username, password) sono obbligatori.\n" >&2
     exit 1
 fi
+
 MASTER=rm.smeup.com
 LOG_FILE=$(mktemp)
 API_LOG=$(mktemp)
@@ -136,7 +129,6 @@ function run_step {
 }
 
 function clean_environment {
-    # Only attempt cleanup if /etc/salt exists — avoid errors on fresh installs
     if [ -d /etc/salt ]; then
         rm -rf /etc/salt/pki/minion 2>/dev/null || true
         if [ -f /etc/salt/minion_id ]; then
@@ -145,27 +137,74 @@ function clean_environment {
     fi
 }
 
-function install_jq_pkg {
+function configure_repos_centos7 {
+    # 1. Disable fastestmirror plugin (causes issues on EOL)
+    if [ -f /etc/yum/pluginconf.d/fastestmirror.conf ]; then
+        sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf 2>/dev/null || true
+    fi
+
+    # 2. Restore/Ensure CentOS 7 Vault (original logic)
+    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i 's|^#baseurl=http://mirror.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i 's|^baseurl=http://mirror.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i 's|^baseurl=http://vault.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    
+    # 3. Disable old/broken repos definitively (rmmagent AND legacy saltstack)
+    for repo_file in /etc/yum.repos.d/rmmagent.repo /etc/yum.repos.d/saltstack.repo; do
+        if [ -f "$repo_file" ]; then
+            mv "$repo_file" "${repo_file}.disabled" 2>/dev/null || true
+        fi
+    done
+    # Extra check for labels in other files
+    sed -i 's/\[rmmagent\]/\[rmmagent\]\nenabled=0/g' /etc/yum.repos.d/*.repo 2>/dev/null || true
+    sed -i 's/\[saltstack\]/\[saltstack\]\nenabled=0/g' /etc/yum.repos.d/*.repo 2>/dev/null || true
+
+    # 4. Fix Damage to EPEL (Revert previous AI changes)
+    if [ -f /etc/yum.repos.d/epel.repo ]; then
+        sed -i 's/^#metalink/metalink/g' /etc/yum.repos.d/epel.repo
+        sed -i 's/^#mirrorlist/mirrorlist/g' /etc/yum.repos.d/epel.repo
+        sed -i '/archives.fedoraproject.org/d' /etc/yum.repos.d/epel.repo
+    fi
+
+    # 5. Global skip_if_unavailable=1
+    for repo in /etc/yum.repos.d/*.repo; do
+        if [ -f "$repo" ]; then
+            sed -i 's/skip_if_unavailable=.*/skip_if_unavailable=1/g' "$repo"
+            if ! grep -q "skip_if_unavailable" "$repo"; then
+                sed -i '/^\[.*\]/a skip_if_unavailable=1' "$repo"
+            fi
+        fi
+    done
+
+    yum clean all
+    # Non-blocking makecache
+    yum makecache || true
+}
+
+function install_dependencies {
+    if ! rpm -qa | grep -q epel-release; then
+        yum install epel-release -y || true
+    fi
+    
     if ! command -v jq &> /dev/null; then
-        if [ -x "$(command -v apt-get)" ]; then
-            apt-get update && apt-get install -y jq
-        elif [ -x "$(command -v zypper)" ]; then
-            zypper install -y jq
-        else
-            echo "Error: Package manager not found (Apt or Zypper required). Please install jq manually." >&2
-            return 1
+        if ! yum install jq -y; then
+            echo "Tentativo di installazione manuale di jq..."
+            curl -L https://github.com/stedolan/jq/releases/latest/download/jq-linux64 -o /usr/local/bin/jq && chmod +x /usr/local/bin/jq
+            ln -sf /usr/local/bin/jq /usr/bin/jq 2>/dev/null || true
         fi
     fi
 }
 
-function install_salt_minion {
-    # Fix for OpenSUSE 16 conflict: remove busybox-which to allow salt-minion RPM install
-    if command -v zypper > /dev/null; then
-        zypper remove -y busybox-which 2>/dev/null || true
+function setup_salt_repo {
+    if [ ! -f /etc/yum.repos.d/salt.repo ]; then
+        curl -fsSL https://github.com/saltstack/salt-install-guide/releases/latest/download/salt.repo | tee /etc/yum.repos.d/salt.repo
+        yum clean all
+        yum makecache
     fi
+}
 
-    curl -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
-    sh install_salt.sh -P -X stable 3006.23
+function install_salt_minion {
+    yum install -y "salt-minion-$SELECTED_VERSION"
 }
 
 function stop_services {
@@ -185,7 +224,6 @@ function register_minion {
         -d match="${MINION}" > /dev/null 2>&1
 
     # Generate and accept new key
-    # Capture both stdout and stderr to parse for errors
     local curl_out
     curl_out=$(curl -sS -X POST "https://${MASTER}/run" \
         -H "Accept: application/json" \
@@ -199,22 +237,18 @@ function register_minion {
     
     local curl_exit_code=$?
 
-    # Save output for logging context if needed (though we mostly want to replaceit)
     echo "$curl_out" > "$API_LOG"
 
-    # Check for network errors (curl code 6 is Could not resolve host)
     if [ $curl_exit_code -eq 6 ] || echo "$curl_out" | grep -q "Could not resolve host"; then
         echo "Registrazione fallita, impossibile raggiungere l'host ${MASTER}"
         return 1
     fi
 
-    # Check for auth errors (HTTP 401 or specific text)
     if echo "$curl_out" | grep -qE "401 Unauthorized|Authentication failure"; then
         echo "Registrazione fallita, utente o password errata"
         return 1
     fi
     
-    # Verify success using jq
     if echo "$curl_out" | jq -e '.return[0].data.success' > /dev/null 2>&1 || echo "$curl_out" | jq -e '.return[0].data.return.success' > /dev/null 2>&1; then
         mkdir -p /etc/salt/pki/minion
         chmod 700 /etc/salt/pki/minion
@@ -222,7 +256,6 @@ function register_minion {
         echo "$curl_out" | jq -r '.return[0].data.return.pub' > /etc/salt/pki/minion/minion.pub
         chmod 600 /etc/salt/pki/minion/minion.pem
     else
-        # If we got here, it's not a standard auth/net error but still failed Logic or JSON parse
         echo "Errore imprevisto durante la registrazione. Risposta API:"
         cat "$API_LOG"
         return 1
@@ -233,33 +266,6 @@ function configure_minion {
     mkdir -p /etc/salt/minion.d
     printf "master: ${MASTER}\nid: ${MINION}" > /etc/salt/minion.d/id.conf
 
-    # Check if service exists
-    if ! systemctl list-unit-files | grep -q salt-minion.service; then
-        echo "Service unit missing, creating it..."
-        local BIN_PATH=$(command -v salt-minion)
-        if [ -z "$BIN_PATH" ]; then
-             echo "Error: salt-minion binary not found!"
-             return 1
-        fi
-        
-        cat <<EOF > /etc/systemd/system/salt-minion.service
-[Unit]
-Description=The Salt Minion
-Documentation=man:salt-minion(1) https://docs.saltproject.io/en/latest/contents.html
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=$BIN_PATH
-Restart=on-failure
-KillMode=process
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        systemctl daemon-reload
-    fi
-
     systemctl enable salt-minion
     systemctl start salt-minion
 }
@@ -268,29 +274,69 @@ function verify_installation {
     salt-call test.ping
 }
 
+function select_salt_version {
+    echo "Recupero versioni Salt Minion disponibili..."
+    
+    local versions
+    if ! versions=$(yum list --showduplicates salt-minion 2>/dev/null | grep "salt-minion" | awk '{print $2}' | sort -r | uniq); then
+         echo "Impossibile recuperare le versioni. Verifica la connessione o i repository."
+         exit 1
+    fi
+
+    if [ -z "$versions" ]; then
+        echo "Errore: Nessuna versione di salt-minion trovata."
+        exit 1
+    fi
+    
+    IFS=$'\n' read -r -d '' -a version_array <<< "$versions"
+
+    echo "Versioni disponibili:"
+    PS3="Seleziona una versione (inserisci il numero): "
+    select version in "${version_array[@]}" "Inserimento Manuale"; do
+        if [ "$version" == "Inserimento Manuale" ]; then
+            read -p "Inserisci versione manuale: " SELECTED_VERSION < /dev/tty
+            break
+        elif [ -n "$version" ]; then
+            SELECTED_VERSION="$version"
+            break
+        else
+            echo "Selezione non valida."
+        fi
+    done < /dev/tty
+    echo "Versione selezionata: $SELECTED_VERSION"
+}
+
 # --- Main Execution ---
 
 # 1. Clean environment
 run_step "Pulizia configurazione precedente" clean_environment
 
-# 2. Install jq
-run_step "Installazione in corso di jq" install_jq_pkg
+# 2. Configure Repos (CentOS 7 specific)
+run_step "Configurazione Repository CentOS 7 (Vault)" configure_repos_centos7
 
-# 3. Install Salt Minion
-run_step "Installazione in corso di Salt Minion" install_salt_minion
+# 3. Install Dependencies
+run_step "Installazione dipendenze (epel, jq)" install_dependencies
 
-# 4. Stop services (part of installation/cleanup really, but safer to do before config)
+# 4. Setup Salt Repo
+run_step "Configurazione Repository Salt" setup_salt_repo
+
+# 5. Select Version
+select_salt_version
+
+# 6. Install Salt Minion
+run_step "Installazione Salt Minion $SELECTED_VERSION" install_salt_minion
+
+# 7. Stop services
 run_step "Arresto servizi" stop_services
 
-# 5. Register Minion
-run_step "Registrazione in corso" register_minion
+# 8. Register Minion
+run_step "Registrazione Minion su ${MASTER}" register_minion
 
-# 6. Configure and Start
+# 9. Configure and Start
 run_step "Configurazione e avvio servizio" configure_minion
 
-# 7. Final Verification
-run_step "Verifica connessione" verify_installation
+# 10. Final Verification
+run_step "Verifica finale connessione" verify_installation
 
-rm -f install_salt.sh
 rm -f "$LOG_FILE" "$API_LOG"
 echo "Installazione completata con successo!"
