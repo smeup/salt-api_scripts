@@ -37,6 +37,23 @@ wget -qO- https://bit.ly/saltapitest | sudo bash -s
 wget -qO- https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
+## Development Installation
+
+For development purposes, if you need to install a specific Salt version or use a different Salt Master, you can use salt-api_dev.sh.
+
+```bash
+wget -qO- https://bit.ly/saltapidev | sudo bash -s
+```
+
+### Features
+
+- **Interactive Master Selection**: Defaults to `rm.smeup.com` but allows override.
+- **Smart Version Selection**:
+  - Fetches available versions from GitHub.
+  - Filters and displays the last **5 versions of the 3007 (STS)** branch.
+  - Filters and displays the last **5 versions of the 3006 (LTS)** branch.
+  - Allows manual version entry if needed.
+
 ## Utility
 
 ### Check master response
@@ -60,30 +77,3 @@ curl https://rm.smeup.com/run -H 'Accept: application/x-yaml' -H 'Content-type: 
 If you want to try connection with testing installation, change "rm.smeup.com/run" with "salt.smeup.com/run"
 
 You can also test all minions using "\*" as MINION_ID.
-
-## Development Installation
-
-For scenarios requiring a specific Salt version or a different Salt Master, use `salt-api_dev.sh`.
-
-```bash
-wget -qO- https://bit.ly/saltapidev | sudo bash -s
-```
-
-### Features
-
-- **Interactive Master Selection**: Defaults to `rm.smeup.com` but allows override.
-- **Smart Version Selection**:
-  - Fetches available versions from GitHub.
-  - Filters and displays the last **5 versions of the 3007 (STS)** branch.
-  - Filters and displays the last **5 versions of the 3006 (LTS)** branch.
-  - Allows manual version entry if needed.
-
-### Usage
-
-```bash
-# Run interactively
-sudo ./salt-api_dev.sh
-
-# Or with arguments (Order: MINION_ID USER PASSWORD MASTER VERSION)
-sudo ./salt-api_dev.sh my-minion user pass rm.smeup.com 3006.9
-```

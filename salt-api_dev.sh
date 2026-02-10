@@ -127,7 +127,7 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER
                         continue
                     fi
                     break
-                done
+                done < "$TTY"
                 IFS=$OLD_IFS
             else
                  # Fallback if specific filtering failed but we got *some* versions?
