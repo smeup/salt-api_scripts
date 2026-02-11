@@ -14,7 +14,7 @@ When you run the script, it will check the MTU of the network interface and will
 ### Standard Installation (All supported OS except CentOS 7)
 
 ```bash
-wget -qO- https://bit.ly/saltapi | sudo bash -s
+curl -fsSL https://bit.ly/saltapi | sudo bash -s
 ```
 
 ## Connect to Testing installation
@@ -28,13 +28,13 @@ First, add on your host file this value:
 ### Register minion
 
 ```bash
-wget -qO- https://bit.ly/saltapitest | sudo bash -s
+curl -fsSL https://bit.ly/saltapitest | sudo bash -s
 ```
 
 ### Legacy command to register minion
 
 ```bash
-wget -qO- https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
+curl -fsSL https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
 ## Development Installation
@@ -42,7 +42,7 @@ wget -qO- https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
 For development purposes, if you need to install a specific Salt version or use a different Salt Master, you can use salt-api_dev.sh.
 
 ```bash
-wget -qO- https://bit.ly/saltapidev | sudo bash -s
+curl -fsSL https://bit.ly/saltapidev | sudo bash -s
 ```
 
 ### Features
@@ -83,7 +83,7 @@ If you want to try connection with testing installation, change "rm.smeup.com/ru
 **Important:** For CentOS 7, you **must** use this specific command. The standard script does not support CentOS 7.
 
 ```bash
-wget -qO- https://bit.ly/saltapicentos7 | sudo bash -s
+curl -fsSL https://bit.ly/saltapicentos7 | sudo bash -s
 ```
 
 ### CentOS 7 Updater Script
@@ -98,7 +98,7 @@ This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.2
 **Usage:**
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/smeup/salt-api_scripts/refs/heads/main/CentOS7/salt-api_centos7_updater.sh | sudo bash
+curl -fsSL https://bit.ly/saltupdate | sudo bash
 ```
 
 **What it does:**

@@ -114,12 +114,23 @@ function configure_repos_centos7 {
     yum makecache
 }
 
-function install_nc {
+function install_dependencies {
+    local install_needed=false
+    
     if ! command -v nc > /dev/null 2>&1; then
-        echo "nc non trovato. Installazione in corso..."
-        # Configuro prima le repo per essere sicuro di trovarlo
+        echo "nc non trovato."
+        install_needed=true
+    fi
+    
+    if ! command -v curl > /dev/null 2>&1; then
+        echo "curl non trovato."
+        install_needed=true
+    fi
+    
+    if [ "$install_needed" = true ]; then
+        echo "Configurazione repo e installazione dipendenze..."
         configure_repos_centos7
-        yum install -y nc
+        yum install -y nc curl
     fi
 }
 
@@ -134,7 +145,7 @@ function check_connection {
 }
 
 function verify_network {
-    install_nc
+    install_dependencies
     echo "Verifica connettività verso $MASTER..."
     check_connection "$MASTER" 4505
     check_connection "$MASTER" 4506
