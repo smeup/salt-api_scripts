@@ -85,3 +85,28 @@ If you want to try connection with testing installation, change "rm.smeup.com/ru
 ```bash
 wget -qO- https://bit.ly/saltapicentos | sudo bash -s
 ```
+
+### CentOS 7 Updater Script
+
+This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.20**, preserving existing keys and configuration.
+
+**Prerequisites:**
+
+- Root privileges.
+- Connectivity to `rm.smeup.com` on ports 4505 and 4506.
+
+**Usage:**
+
+```bash
+wget -qO- https://url-to-updater-script | sudo bash
+```
+
+_(Replace `https://url-to-updater-script` with the actual URL once generated/hosted)_
+
+**What it does:**
+
+1. Checks connectivity to the Master.
+2. Backs up keys and config.
+3. Removes old Salt Minion.
+4. Installs Salt Minion 3006.20.
+5. Restores keys and restarts the service.
