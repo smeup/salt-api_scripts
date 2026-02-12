@@ -104,9 +104,13 @@ function restore_keys {
         cp "$BACKUP_DIR/minion.d/id.conf" /etc/salt/minion.d/
     fi
     
-    # Ensure Service is enabled
+    # Ensure Master is configured correctly (avoid default 'salt' lookup)
+    mkdir -p /etc/salt/minion.d
+    echo "master: $MASTER" > /etc/salt/minion.d/master.conf
+    
+    # Ensure Service is enabled and restarted to load new config
     systemctl enable salt-minion
-    systemctl start salt-minion
+    systemctl restart salt-minion
 }
 
 # Configurazione Master
