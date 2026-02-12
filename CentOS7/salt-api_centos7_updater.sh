@@ -55,24 +55,35 @@ function backup_keys {
 function remove_old_salt {
     systemctl stop salt-minion 2>/dev/null || true
     systemctl disable salt-minion 2>/dev/null || true
-    yum remove -y salt-minion
+    # Remove both salt-minion and the salt base package to avoid version conflicts
+    yum remove -y salt-minion salt
+    # Clean yum cache to avoid metadata issues
+    yum clean all
     # Clean up old directories but keep config if not replacing completely (we restore anyway)
     rm -rf /etc/salt/pki/minion
 }
 
 function install_new_salt {
-    # Ensure repo is set up
-    if [ ! -f /etc/yum.repos.d/salt.repo ]; then
-        curl -fsSL https://github.com/saltstack/salt-install-guide/releases/latest/download/salt.repo | tee /etc/yum.repos.d/salt.repo
-        yum clean all
-        yum makecache
-    fi
+    # Configure only Salt 3006 LTS repository
+    cat <<EOF > /etc/yum.repos.d/salt.repo
+[salt-repo-3006-lts]
+name=Salt Repo for Salt v3006 LTS
+baseurl=https://packages.broadcom.com/artifactory/saltproject-rpm/
+skip_if_unavailable=True
+priority=10
+enabled=1
+enabled_metadata=1
+gpgcheck=1
+exclude=*3007* *3008* *3009* *3010*
+gpgkey=https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public
+EOF
+    
+    # Refresh cache
+    yum clean all
+    yum makecache
 
-    # Try to install specific version
-    # If the user meant 3006.20, check if it exists. 
-    # Usually Salt versions are 3006.1, 3006.2 etc.
-    # yum install -y salt-minion-3006.2*
-    yum install -y "salt-minion-$SALT_VERSION*"
+    # Install specific version
+    yum install -y "salt-minion-$SALT_VERSION*" "salt-$SALT_VERSION*"
 }
 
 function restore_keys {
