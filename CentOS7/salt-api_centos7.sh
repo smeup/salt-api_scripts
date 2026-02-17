@@ -129,11 +129,30 @@ function configure_repos_centos7 {
     # Backup existing repos
     if [ ! -d "/etc/yum.repos.d/backup" ]; then
         mkdir -p /etc/yum.repos.d/backup
-        cp /etc/yum.repos.d/CentOS-* /etc/yum.repos.d/backup/ 2>/dev/null || true
+        cp /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ 2>/dev/null || true
     fi
     
+    # 1. Configure CentOS 7 Vault (Base and Updates)
     sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    
+    # 2. Configure EPEL for EOL (if present)
+    if [ -f /etc/yum.repos.d/epel.repo ]; then
+        sed -i 's/metalink/#metalink/g' /etc/yum.repos.d/epel.repo
+        sed -i 's|#baseurl=https://download.fedoraproject.org/pub/epel/|baseurl=https://archives.fedoraproject.org/pub/archive/epel/|g' /etc/yum.repos.d/epel.repo
+    fi
+
+    # 3. GLOBAL: Set skip_if_unavailable=1 for all repositories to prevent blocking on broken third-party repos
+    for repo in /etc/yum.repos.d/*.repo; do
+        if ! grep -q "skip_if_unavailable=" "$repo"; then
+            # Add after the name or at the end of sections if not present
+            sed -i '/^\[.*\]/a skip_if_unavailable=1' "$repo"
+        else
+            # Update existing values to 1
+            sed -i 's/skip_if_unavailable=.*/skip_if_unavailable=1/g' "$repo"
+        fi
+    done
+
     yum clean all
     yum makecache
 }
