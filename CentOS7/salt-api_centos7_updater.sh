@@ -117,32 +117,40 @@ function restore_keys {
 MASTER="rm.smeup.com"
 
 function configure_repos_centos7 {
-    # Backup existing repos
-    if [ ! -d "/etc/yum.repos.d/backup" ]; then
-        mkdir -p /etc/yum.repos.d/backup
-        cp /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ 2>/dev/null || true
-    fi
-    
-    # 1. Restore/Ensure CentOS 7 Vault (original logic)
-    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
-    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-    
-    # 2. Specifically disable the failing rmmagent repo if present
-    if [ -f /etc/yum.repos.d/rmmagent.repo ]; then
-        sed -i 's/enabled=1/enabled=0/g' /etc/yum.repos.d/rmmagent.repo
+    # 1. Disable fastestmirror plugin
+    if [ -f /etc/yum/pluginconf.d/fastestmirror.conf ]; then
+        sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf 2>/dev/null || true
     fi
 
-    # 3. GLOBAL: Set skip_if_unavailable=1 for all repositories
+    # 2. Restore/Ensure CentOS 7 Vault (original logic)
+    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    
+    # 3. Fix Damage to EPEL (Revert previous AI changes)
+    if [ -f /etc/yum.repos.d/epel.repo ]; then
+        sed -i 's/^#metalink/metalink/g' /etc/yum.repos.d/epel.repo
+        sed -i 's/^#mirrorlist/mirrorlist/g' /etc/yum.repos.d/epel.repo
+        sed -i '/archives.fedoraproject.org/d' /etc/yum.repos.d/epel.repo
+    fi
+
+    # 4. Disable rmmagent repo effectively
+    if [ -f /etc/yum.repos.d/rmmagent.repo ]; then
+        mv /etc/yum.repos.d/rmmagent.repo /etc/yum.repos.d/rmmagent.repo.disabled 2>/dev/null || true
+    fi
+    sed -i 's/\[rmmagent\]/\[rmmagent\]\nenabled=0/g' /etc/yum.repos.d/*.repo 2>/dev/null || true
+
+    # 5. Global skip_if_unavailable=1
     for repo in /etc/yum.repos.d/*.repo; do
-        if ! grep -q "skip_if_unavailable=" "$repo"; then
-            sed -i '/^\[.*\]/a skip_if_unavailable=1' "$repo"
-        else
+        if [ -f "$repo" ]; then
             sed -i 's/skip_if_unavailable=.*/skip_if_unavailable=1/g' "$repo"
+            if ! grep -q "skip_if_unavailable" "$repo"; then
+                sed -i '/^\[.*\]/a skip_if_unavailable=1' "$repo"
+            fi
         fi
     done
 
     yum clean all
-    yum makecache
+    yum makecache || true
 }
 
 function install_dependencies {
