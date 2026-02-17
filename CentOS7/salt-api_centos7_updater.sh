@@ -126,18 +126,22 @@ function configure_repos_centos7 {
     sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
     
-    # 3. Fix Damage to EPEL (Revert previous AI changes)
+    # 3. Disable old/broken repos definitively (rmmagent AND legacy saltstack)
+    for repo_file in /etc/yum.repos.d/rmmagent.repo /etc/yum.repos.d/saltstack.repo; do
+        if [ -f "$repo_file" ]; then
+            mv "$repo_file" "${repo_file}.disabled" 2>/dev/null || true
+        fi
+    done
+    # Extra check for labels in other files
+    sed -i 's/\[rmmagent\]/\[rmmagent\]\nenabled=0/g' /etc/yum.repos.d/*.repo 2>/dev/null || true
+    sed -i 's/\[saltstack\]/\[saltstack\]\nenabled=0/g' /etc/yum.repos.d/*.repo 2>/dev/null || true
+
+    # 4. Fix Damage to EPEL (Revert previous AI changes)
     if [ -f /etc/yum.repos.d/epel.repo ]; then
         sed -i 's/^#metalink/metalink/g' /etc/yum.repos.d/epel.repo
         sed -i 's/^#mirrorlist/mirrorlist/g' /etc/yum.repos.d/epel.repo
         sed -i '/archives.fedoraproject.org/d' /etc/yum.repos.d/epel.repo
     fi
-
-    # 4. Disable rmmagent repo effectively
-    if [ -f /etc/yum.repos.d/rmmagent.repo ]; then
-        mv /etc/yum.repos.d/rmmagent.repo /etc/yum.repos.d/rmmagent.repo.disabled 2>/dev/null || true
-    fi
-    sed -i 's/\[rmmagent\]/\[rmmagent\]\nenabled=0/g' /etc/yum.repos.d/*.repo 2>/dev/null || true
 
     # 5. Global skip_if_unavailable=1
     for repo in /etc/yum.repos.d/*.repo; do
