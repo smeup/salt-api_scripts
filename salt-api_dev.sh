@@ -2,11 +2,11 @@
 
 if [ $(id -u) -ne 0 ]; then echo "Sono necessari i privilegi di root per eseguire questo script" ; exit 1 ; fi
 
-# Check OS version (openSUSE required)
+# Check OS version (openSUSE, Debian, Ubuntu required)
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    if [[ "$ID" != "opensuse-leap" && "$ID" != "opensuse-tumbleweed" ]]; then
-        echo "Errore: Questo script è progettato per openSUSE. Sistema rilevato: $NAME ($ID)"
+    if [[ "$ID" != "opensuse-leap" && "$ID" != "opensuse-tumbleweed" && "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
+        echo "Errore: Questo script è progettato per openSUSE, Debian o Ubuntu. Sistema rilevato: $NAME ($ID)"
         exit 1
     fi
 else
@@ -217,14 +217,10 @@ function install_jq_pkg {
     if ! command -v jq &> /dev/null; then
         if [ -x "$(command -v apt-get)" ]; then
             apt-get update && apt-get install -y jq
-        elif [ -x "$(command -v dnf)" ]; then
-            dnf install -y jq
         elif [ -x "$(command -v zypper)" ]; then
             zypper install -y jq
-        elif [ -x "$(command -v yum)" ]; then
-            yum install -y jq
         else
-            echo "Error: Package manager not found. Please install jq manually." >&2
+            echo "Error: Package manager not found (Apt or Zypper required). Please install jq manually." >&2
             return 1
         fi
     fi
