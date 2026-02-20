@@ -2,6 +2,18 @@
 
 if [ $(id -u) -ne 0 ]; then echo "Sono necessari i privilegi di root per eseguire questo script" ; exit 1 ; fi
 
+# Check OS version (CentOS 7 required)
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" != "centos" || "$VERSION_ID" != "7" ]]; then
+        echo "Errore: Questo script è progettato specificamente per CentOS 7. Sistema rilevato: $NAME ($VERSION_ID)"
+        exit 1
+    fi
+else
+    echo "Errore: Impossibile determinare la versione del sistema operativo (/etc/os-release non trovato)."
+    exit 1
+fi
+
 function usage {
 	echo "Usage: `basename "$0"` [MINION-ID] [USER] [PASSWORD]" >&2
 	echo "Note: If arguments are omitted, they will be requested interactively." >&2

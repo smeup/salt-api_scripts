@@ -22,7 +22,7 @@ curl -fsSL https://bit.ly/saltapi | sudo bash -s
 First, add on your host file this value:
 
 ```bash
-3.253.51.223    salt.smeup.com
+18.201.195.159     rm-test.smeup.com
 ```
 
 ### Register minion
@@ -98,7 +98,7 @@ This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.2
 **Usage:**
 
 ```bash
-curl -fsSL https://bit.ly/saltupdate | sudo bash
+curl -fsSL https://bit.ly/saltupdate | sudo bash -s
 ```
 
 **What it does:**

@@ -2,6 +2,18 @@
 
 if [ $(id -u) -ne 0 ]; then echo "Sono necessari i privilegi di root per eseguire questo script" ; exit 1 ; fi
 
+# Check OS version (openSUSE required)
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" != "opensuse-leap" && "$ID" != "opensuse-tumbleweed" ]]; then
+        echo "Errore: Questo script è progettato per openSUSE. Sistema rilevato: $NAME ($ID)"
+        exit 1
+    fi
+else
+    echo "Errore: Impossibile determinare la versione del sistema operativo (/etc/os-release non trovato)."
+    exit 1
+fi
+
 function usage {
 	echo "Usage: `basename "$0"` [MINION-ID] [USER] [PASSWORD]" >&2
 	echo "Note: If arguments are omitted, they will be requested interactively." >&2
@@ -85,7 +97,7 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
     printf "\nErrore: Tutti i campi (minion, username, password) sono obbligatori.\n" >&2
     exit 1
 fi
-MASTER=salt.smeup.com
+MASTER=rm-test.smeup.com
 LOG_FILE=$(mktemp)
 API_LOG=$(mktemp)
 
