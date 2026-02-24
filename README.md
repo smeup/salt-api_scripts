@@ -101,6 +101,11 @@ This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.2
 curl -fsSL https://bit.ly/saltupdate | sudo bash -s
 ```
 
+**Tested and working on:**
+
+- salt-minion 2018.3.3
+- salt-minion 2019.2.0
+
 **What it does:**
 
 1. Checks connectivity to the Master.
