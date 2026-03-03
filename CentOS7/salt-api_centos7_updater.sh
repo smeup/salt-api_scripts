@@ -201,12 +201,31 @@ function check_connection {
     fi
 }
 
+function check_https_reachability {
+    local url="$1"
+    # Try to get the HTTP status code. 2xx or 3xx are considered success.
+    local status_code
+    status_code=$(curl -L -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "$url")
+    
+    if [[ ! "$status_code" =~ ^[23] ]]; then
+        echo "Errore: Impossibile raggiungere il repository HTTPS: $url (Status code: $status_code)"
+        echo "Non aggiorno perche non riesco a raggiungere il sito."
+        rm -rf "$BACKUP_DIR"
+        return 1
+    fi
+}
+
 function verify_network {
     install_dependencies
     echo "Verifica connettività verso $MASTER..."
-    check_connection "$MASTER" 4505
-    check_connection "$MASTER" 4506
-    echo "Connessione verso $MASTER su porte 4505 e 4506 OK."
+    check_connection "$MASTER" 4505 || return 1
+    check_connection "$MASTER" 4506 || return 1
+    
+    echo "Verifica connettività verso i repository HTTPS..."
+    check_https_reachability "https://vault.centos.org" || return 1
+    check_https_reachability "https://packages.broadcom.com" || return 1
+    
+    echo "Connettività verso $MASTER e repository OK."
 }
 
 # --- Main ---
