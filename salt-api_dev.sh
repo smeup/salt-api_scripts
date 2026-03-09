@@ -128,7 +128,7 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER
                 select v in $COMBINED_VERSIONS "Manuale"; do
                     if [ "$v" == "Manuale" ]; then
                         IFS=$OLD_IFS # Restore IFS before reading input
-                        printf "Inserisci versione Salt manualmente (es. 3006.16): " > /dev/tty
+                        printf "Inserisci versione Salt manualmente (es. 3006.23): " > /dev/tty
                         read -r SALT_VERSION < "$TTY"
                     elif [ -n "$v" ]; then
                         IFS=$OLD_IFS # Restore IFS
@@ -146,14 +146,14 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER
                  # Actually if COMBINED is empty, it means we didn't find 3007 or 3006.
                  # Let's just fallback to manual.
                  echo "Nessuna versione 3007/3006 trovata." > /dev/tty
-                 DEFAULT_VERSION="3006.16"
+                 DEFAULT_VERSION="3006.23"
                  printf "Inserisci versione Salt [$DEFAULT_VERSION]: " > /dev/tty
                  read -r SALT_VERSION < "$TTY"
                  SALT_VERSION=${SALT_VERSION:-$DEFAULT_VERSION}
             fi
         else
              echo "Impossibile recuperare lista versioni." > /dev/tty
-             DEFAULT_VERSION="3006.16"
+             DEFAULT_VERSION="3006.23"
              printf "Inserisci versione Salt [$DEFAULT_VERSION]: " > /dev/tty
              read -r SALT_VERSION < "$TTY"
              SALT_VERSION=${SALT_VERSION:-$DEFAULT_VERSION}

@@ -15,7 +15,7 @@ else
 fi
 
 # Versione specifica richiesta
-SALT_VERSION="3006.20"
+SALT_VERSION="3006.23"
 
 
 BACKUP_DIR=$(mktemp -d)
