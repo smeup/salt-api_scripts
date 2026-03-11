@@ -50,8 +50,8 @@ curl -fsSL https://bit.ly/saltapidev | sudo bash -s
 - **Interactive Master Selection**: Defaults to `rm.smeup.com` but allows override.
 - **Smart Version Selection**:
   - Fetches available versions from GitHub.
-  - Filters and displays the last **5 versions of the 3007 (STS)** branch.
-  - Filters and displays the last **5 versions of the 3006 (LTS)** branch.
+  - Filters and displays the last **6 versions of the 3006.x (LTS)** branch.
+  - If no version is entered, installs the latest available `3006.x`.
   - Allows manual version entry if needed.
 
 ## Utility
@@ -59,6 +59,10 @@ curl -fsSL https://bit.ly/saltapidev | sudo bash -s
 ### Update Salt bootstrap installation
 
 Per aggiornare un `salt-minion` gia' installato via `bootstrap-salt.sh` all'ultima versione stable disponibile, usando backup conservativo di configurazione e chiavi:
+
+```bash
+curl -fsSL https://bit.ly/saltapi-upd | sudo bash -s
+```
 
 In locale:
 

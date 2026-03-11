@@ -96,68 +96,26 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER
 
     if [ -z "$SALT_VERSION" ]; then
         echo "Caricamento versioni disponibili..." > /dev/tty
-        # Try to fetch versions from GitHub API (fetching more tags to ensure we get enough history)
-        # We fetch top 100 tags to be safe
         RAW_VERSIONS=$(curl -s "https://api.github.com/repos/saltstack/salt/tags?per_page=100" | grep "name" | cut -d '"' -f 4 | sed 's/^v//')
-        
-        if [ -n "$RAW_VERSIONS" ]; then
-            # Filter for 3007.x (STS) - take top 5
-            VERSIONS_3007=$(echo "$RAW_VERSIONS" | grep '^3007\.' | sort -Vr | head -n 5 | sed 's/$/ (STS)/')
-            
-            # Filter for 3006.x (LTS) - take top 5
-            VERSIONS_3006=$(echo "$RAW_VERSIONS" | grep '^3006\.' | sort -Vr | head -n 5 | sed 's/$/ (LTS)/')
-            
-            # Combine them
-            # We use newlines to separate them so 'select' treats them as options
-            # If both are empty, this block might be empty, handled below
-            COMBINED_VERSIONS=$(printf "%s\n%s" "$VERSIONS_3007" "$VERSIONS_3006")
-            
-            # Remove empty lines if any (e.g. if one version family is missing)
-            COMBINED_VERSIONS=$(echo "$COMBINED_VERSIONS" | sed '/^$/d')
+        DEFAULT_VERSION="3006.23"
 
-            if [ -n "$COMBINED_VERSIONS" ]; then
-                echo "Versioni disponibili trovate:" > /dev/tty
-                # Set IFS to newline to handle the list properly in select
-                OLD_IFS=$IFS
-                IFS=$'\n'
-                
-                # We need to turn the string variable into an array or just pass it to select (which splits by IFS)
-                # 'select' usually splits by space/newline based on IFS. 
-                # Let's try passing the variable directly with IFS set to newline.
-                
-                select v in $COMBINED_VERSIONS "Manuale"; do
-                    if [ "$v" == "Manuale" ]; then
-                        IFS=$OLD_IFS # Restore IFS before reading input
-                        printf "Inserisci versione Salt manualmente (es. 3006.23): " > /dev/tty
-                        read -r SALT_VERSION < "$TTY"
-                    elif [ -n "$v" ]; then
-                        IFS=$OLD_IFS # Restore IFS
-                        # Clean up the version string: remove " (STS)" or " (LTS)" suffix
-                        SALT_VERSION=$(echo "$v" | sed 's/ (STS)//' | sed 's/ (LTS)//')
-                    else
-                        echo "Selezione non valida." > /dev/tty
-                        continue
-                    fi
-                    break
-                done < "$TTY"
-                IFS=$OLD_IFS
+        if [ -n "$RAW_VERSIONS" ]; then
+            VERSIONS_3006=$(echo "$RAW_VERSIONS" | grep '^3006\.' | sort -Vr | head -n 6)
+
+            if [ -n "$VERSIONS_3006" ]; then
+                DEFAULT_VERSION=$(echo "$VERSIONS_3006" | head -n 1)
+                echo "Ultime versioni Salt 3006.x disponibili:" > /dev/tty
+                echo "$VERSIONS_3006" | nl -w1 -s'. ' > /dev/tty
             else
-                 # Fallback if specific filtering failed but we got *some* versions?
-                 # Actually if COMBINED is empty, it means we didn't find 3007 or 3006.
-                 # Let's just fallback to manual.
-                 echo "Nessuna versione 3007/3006 trovata." > /dev/tty
-                 DEFAULT_VERSION="3006.23"
-                 printf "Inserisci versione Salt [$DEFAULT_VERSION]: " > /dev/tty
-                 read -r SALT_VERSION < "$TTY"
-                 SALT_VERSION=${SALT_VERSION:-$DEFAULT_VERSION}
+                echo "Nessuna versione 3006.x trovata, uso default." > /dev/tty
             fi
         else
-             echo "Impossibile recuperare lista versioni." > /dev/tty
-             DEFAULT_VERSION="3006.23"
-             printf "Inserisci versione Salt [$DEFAULT_VERSION]: " > /dev/tty
-             read -r SALT_VERSION < "$TTY"
-             SALT_VERSION=${SALT_VERSION:-$DEFAULT_VERSION}
+            echo "Impossibile recuperare lista versioni, uso default." > /dev/tty
         fi
+
+        printf "Inserisci versione Salt [%s]: " "$DEFAULT_VERSION" > /dev/tty
+        read -r SALT_VERSION < "$TTY"
+        SALT_VERSION=${SALT_VERSION:-$DEFAULT_VERSION}
     fi
 fi
 
