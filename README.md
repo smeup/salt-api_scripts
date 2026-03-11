@@ -56,6 +56,16 @@ curl -fsSL https://bit.ly/saltapidev | sudo bash -s
 
 ## Utility
 
+### Update Salt bootstrap installation
+
+Per aggiornare un `salt-minion` gia' installato via `bootstrap-salt.sh` all'ultima versione stable disponibile, usando backup conservativo di configurazione e chiavi:
+
+In locale:
+
+```bash
+sudo bash salt-update_latest.sh
+```
+
 ### Check master response
 
 ```bash
