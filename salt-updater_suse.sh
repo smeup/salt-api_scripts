@@ -113,6 +113,16 @@ function get_salt_version {
 }
 
 function detect_installation_method {
+    if [[ "$ID" = "opensuse-leap" || "$ID" = "opensuse-tumbleweed" ]]; then
+        INSTALL_METHOD="bootstrap"
+        SALT_BINARY=$(command -v salt-minion 2>/dev/null || command -v salt-call 2>/dev/null || true)
+        if [ -z "$SALT_BINARY" ]; then
+            echo "Errore: impossibile determinare il binario Salt installato."
+            return 1
+        fi
+        return 0
+    fi
+
     local repo_markers=(
         /etc/apt/sources.list.d/salt.list
         /etc/apt/sources.list.d/salt.sources
@@ -190,7 +200,11 @@ function install_salt_latest_bootstrap {
     fi
 
     curl -fsSL https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
-    sh install_salt.sh -P -X stable "$SALT_VERSION"
+    if [ -f /etc/zypp/repos.d/salt.repo ]; then
+        sh install_salt.sh -r -P -X stable "$SALT_VERSION"
+    else
+        sh install_salt.sh -P -X stable "$SALT_VERSION"
+    fi
 }
 
 function install_salt_latest_repo {
