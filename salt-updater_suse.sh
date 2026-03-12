@@ -18,9 +18,18 @@ else
     exit 1
 fi
 
+SALT_VERSION="3006.23"
+SUSE_TARGET_PACKAGES=(
+    salt
+    salt-minion
+)
+SUSE_LEGACY_PACKAGES=(
+    python3-salt
+)
+
 function usage {
     echo "Usage: $(basename "$0")" >&2
-    echo "Aggiorna salt-minion alla versione fissa 3006.23." >&2
+    echo "Aggiorna salt-minion alla versione fissa $SALT_VERSION." >&2
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -35,7 +44,6 @@ fi
 
 LOG_FILE=$(mktemp)
 BACKUP_DIR=$(mktemp -d)
-SALT_VERSION="3006.23"
 INSTALL_METHOD=""
 SALT_BINARY=""
 BEFORE_VERSION=""
@@ -113,16 +121,6 @@ function get_salt_version {
 }
 
 function detect_installation_method {
-    if [[ "$ID" = "opensuse-leap" || "$ID" = "opensuse-tumbleweed" ]]; then
-        INSTALL_METHOD="bootstrap"
-        SALT_BINARY=$(command -v salt-minion 2>/dev/null || command -v salt-call 2>/dev/null || true)
-        if [ -z "$SALT_BINARY" ]; then
-            echo "Errore: impossibile determinare il binario Salt installato."
-            return 1
-        fi
-        return 0
-    fi
-
     local repo_markers=(
         /etc/apt/sources.list.d/salt.list
         /etc/apt/sources.list.d/salt.sources
@@ -210,6 +208,11 @@ function extract_salt_version_number {
 
 function install_salt_latest_repo {
     local packages
+    local repo_alias
+    local package_args=()
+    local package_name
+    local remove_args=()
+    local target_package
 
     if command -v apt-get >/dev/null 2>&1; then
         packages=$(dpkg-query -W -f='${binary:Package}\n' 'salt*' 2>/dev/null | sort -u | tr '\n' ' ')
@@ -224,14 +227,41 @@ function install_salt_latest_repo {
     fi
 
     if command -v zypper >/dev/null 2>&1; then
-        packages=$(rpm -qa | grep '^salt' | sort -u | tr '\n' ' ')
+        packages=$(rpm -qa --qf '%{NAME}\n' | grep -E '^(salt|python3-salt)(-|$)' | sort -u | tr '\n' ' ')
         if [ -z "$packages" ]; then
             echo "Errore: nessun pacchetto Salt trovato tramite rpm."
             return 1
         fi
 
+        repo_alias=$(awk -F'[][]' '/^\[/{print $2; exit}' /etc/zypp/repos.d/salt.repo 2>/dev/null || true)
+        if [ -z "$repo_alias" ]; then
+            echo "Errore: impossibile determinare l'alias del repository Salt da /etc/zypp/repos.d/salt.repo."
+            return 1
+        fi
+
+        for target_package in "${SUSE_TARGET_PACKAGES[@]}"; do
+            package_args+=("${target_package}-${SALT_VERSION}")
+        done
+
+        while IFS= read -r package_name; do
+            [ -n "$package_name" ] || continue
+            case "$package_name" in
+                python3-salt)
+                    remove_args+=("${package_name}")
+                    ;;
+            esac
+        done < <(printf '%s\n' "$packages" | tr ' ' '\n' | sed '/^$/d')
+
+        if [ "${#package_args[@]}" -eq 0 ]; then
+            echo "Errore: nessun pacchetto Salt aggiornabile identificato per zypper."
+            return 1
+        fi
+
         zypper refresh
-        zypper install -y $(printf '%s\n' "$packages" | tr ' ' '\n' | sed "/^$/d; s/\$/-$SALT_VERSION*/")
+        if [ "${#remove_args[@]}" -gt 0 ]; then
+            zypper --non-interactive remove -y "${remove_args[@]}"
+        fi
+        zypper --non-interactive install --allow-vendor-change --from "$repo_alias" "${package_args[@]}"
         return 0
     fi
 
@@ -344,6 +374,7 @@ if [ "$INSTALL_METHOD" = "bootstrap" ]; then
     run_step "Ripristino configurazione se necessario" restore_salt_state
 else
     run_step "Aggiornamento Salt alla versione $SALT_VERSION dai repository configurati" install_salt_latest
+    run_step "Ripristino configurazione se necessario" restore_salt_state
 fi
 run_step "Riavvio servizio" start_service
 run_step_stateful "Verifica versione installata" verify_installation
