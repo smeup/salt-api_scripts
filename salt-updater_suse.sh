@@ -206,6 +206,32 @@ function extract_salt_version_number {
     printf '%s\n' "$version_output" | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1
 }
 
+function find_suse_salt_repo_alias {
+    local repo_file
+    local current_alias=""
+
+    for repo_file in /etc/zypp/repos.d/*.repo; do
+        [ -f "$repo_file" ] || continue
+
+        while IFS= read -r line; do
+            case "$line" in
+                \[*\])
+                    current_alias="${line#[}"
+                    current_alias="${current_alias%]}"
+                    ;;
+                baseurl=*)
+                    if printf '%s\n' "$line" | grep -Eq 'packages\.broadcom\.com/.*/saltproject-rpm|saltproject-rpm'; then
+                        printf '%s\n' "$current_alias"
+                        return 0
+                    fi
+                    ;;
+            esac
+        done < "$repo_file"
+    done
+
+    return 1
+}
+
 function install_salt_latest_repo {
     local packages
     local repo_alias
@@ -233,9 +259,9 @@ function install_salt_latest_repo {
             return 1
         fi
 
-        repo_alias=$(awk -F'[][]' '/^\[/{print $2; exit}' /etc/zypp/repos.d/salt.repo 2>/dev/null || true)
+        repo_alias=$(find_suse_salt_repo_alias 2>/dev/null || true)
         if [ -z "$repo_alias" ]; then
-            echo "Errore: impossibile determinare l'alias del repository Salt da /etc/zypp/repos.d/salt.repo."
+            echo "Errore: impossibile determinare l'alias del repository Salt dai file in /etc/zypp/repos.d."
             return 1
         fi
 
