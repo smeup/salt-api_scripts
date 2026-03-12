@@ -16,8 +16,6 @@ fi
 
 # Versione specifica richiesta
 SALT_VERSION="3006.23"
-INSTALL_METHOD=""
-SALT_BINARY=""
 
 
 BACKUP_DIR=$(mktemp -d)
@@ -52,31 +50,14 @@ function run_step {
     fi
 }
 
-function detect_installation_method {
-    SALT_BINARY=$(command -v salt-minion 2>/dev/null || command -v salt-call 2>/dev/null || true)
-
-    if [ -z "$SALT_BINARY" ]; then
-        echo "Errore: salt-minion non risulta installato su questo host."
-        return 1
-    fi
-
-    if [ -x /usr/local/bin/salt-minion ] || [ -x /usr/local/bin/salt-call ]; then
-        INSTALL_METHOD="bootstrap"
-        return 0
-    fi
-
-    if command -v rpm >/dev/null 2>&1 && rpm -qf "$SALT_BINARY" >/dev/null 2>&1; then
-        INSTALL_METHOD="repo"
-        return 0
-    fi
-
-    INSTALL_METHOD="bootstrap"
-}
-
 function show_installation_summary {
-    echo "Metodo installazione rilevato: $INSTALL_METHOD"
-    echo "Binario Salt usato per verifica: $SALT_BINARY"
-    "$SALT_BINARY" --version 2>/dev/null || true
+    local salt_binary
+    salt_binary=$(command -v salt-minion 2>/dev/null || true)
+    echo "Metodo installazione previsto: repository package"
+    echo "Binario Salt corrente: ${salt_binary:-non trovato}"
+    if [ -n "$salt_binary" ]; then
+        "$salt_binary" --version 2>/dev/null || true
+    fi
     rpm -q salt-minion 2>/dev/null || true
 }
 
@@ -126,23 +107,6 @@ function remove_old_salt {
     rm -f /usr/local/bin/salt-minion /usr/local/bin/salt-call
 }
 
-function remove_old_salt_bootstrap {
-    stop_salt_service
-
-    # On old CentOS hosts it is common to have a mixed state: bootstrap markers
-    # plus an old RPM package still providing /usr/bin/salt-minion.
-    if rpm -q salt-minion >/dev/null 2>&1; then
-        yum remove -y salt-minion salt
-        yum clean all
-    fi
-
-    for bin in /usr/local/bin/salt-minion /usr/local/bin/salt-call; do
-        if [ -e "$bin" ] && ! rpm -qf "$bin" >/dev/null 2>&1; then
-            rm -f "$bin"
-        fi
-    done
-}
-
 function install_new_salt_repo {
     # Configure only Salt 3006 LTS repository
     cat <<EOF > /etc/yum.repos.d/salt.repo
@@ -164,19 +128,6 @@ EOF
 
     # Install specific version
     yum install -y "salt-minion-$SALT_VERSION*" "salt-$SALT_VERSION*"
-}
-
-function install_new_salt_bootstrap {
-    curl -fsSL https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
-    sh install_salt.sh -P -X stable "$SALT_VERSION"
-}
-
-function install_new_salt {
-    if [ "$INSTALL_METHOD" = "repo" ]; then
-        install_new_salt_repo
-    else
-        install_new_salt_bootstrap
-    fi
 }
 
 function verify_installation {
@@ -352,8 +303,8 @@ function verify_target_package_available {
 
 # --- Main ---
 
-# -1. Rilevamento installazione
-run_step "Rilevamento metodo installazione" detect_installation_method
+# -1. Sommario installazione corrente
+run_step "Rilevamento installazione corrente" true
 show_installation_summary
 
 # 0. Verifica prerequisiti di rete (Installa nc se serve, configurando repo)
@@ -364,18 +315,10 @@ run_step "Verifica disponibilita' Salt $SALT_VERSION nei repository" verify_targ
 run_step "Backup chiavi e configurazione" backup_keys
 
 # 2. Rimuovi vecchia versione
-if [ "$INSTALL_METHOD" = "repo" ]; then
-    run_step "Rimozione vecchia versione Salt Minion da repository" remove_old_salt
-else
-    run_step "Pulizia binari bootstrap precedenti" remove_old_salt_bootstrap
-fi
+run_step "Rimozione vecchia versione Salt Minion" remove_old_salt
 
 # 3. Installa nuova versione
-if [ "$INSTALL_METHOD" = "repo" ]; then
-    run_step "Installazione Salt Minion versione $SALT_VERSION da repository" install_new_salt
-else
-    run_step "Installazione Salt Minion versione $SALT_VERSION via bootstrap" install_new_salt
-fi
+run_step "Installazione Salt Minion versione $SALT_VERSION da repository" install_new_salt_repo
 
 # 4. Ripristino
 run_step "Ripristino chiavi e avvio servizio" restore_keys
