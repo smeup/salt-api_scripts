@@ -107,8 +107,8 @@ function remove_old_salt {
     rm -f /usr/local/bin/salt-minion /usr/local/bin/salt-call
 }
 
-function install_new_salt_repo {
-    # Configure only Salt 3006 LTS repository
+function configure_salt_repo {
+    # Configure only Salt 3006 LTS repository before any availability checks.
     cat <<EOF > /etc/yum.repos.d/salt.repo
 [salt-repo-3006-lts]
 name=Salt Repo for Salt v3006 LTS
@@ -121,10 +121,14 @@ gpgcheck=1
 exclude=*3007* *3008* *3009* *3010*
 gpgkey=https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public
 EOF
-    
-    # Refresh cache
+
+    # Refresh cache after switching repo configuration.
     yum clean all
     yum makecache
+}
+
+function install_new_salt_repo {
+    configure_salt_repo
 
     # Install specific version
     yum install -y "salt-minion-$SALT_VERSION*" "salt-$SALT_VERSION*"
@@ -288,15 +292,17 @@ function verify_target_package_available {
     local available_minion
     local available_salt
 
-    available_minion=$(yum list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
-    available_salt=$(yum list --showduplicates salt 2>/dev/null | awk '/^salt(\.|[[:space:]])/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
+    configure_salt_repo
+
+    available_minion=$(yum --disablerepo='*' --enablerepo='salt-repo-3006-lts' list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
+    available_salt=$(yum --disablerepo='*' --enablerepo='salt-repo-3006-lts' list --showduplicates salt 2>/dev/null | awk '/^salt(\.|[[:space:]])/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
 
     if [ -z "$available_minion" ] || [ -z "$available_salt" ]; then
         echo "Errore: la versione Salt $SALT_VERSION non risulta disponibile dai repository configurati."
         echo "Versioni visibili per salt-minion:"
-        yum list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $1, $2}' || true
+        yum --disablerepo='*' --enablerepo='salt-repo-3006-lts' list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $1, $2}' || true
         echo "Versioni visibili per salt:"
-        yum list --showduplicates salt 2>/dev/null | awk '/^salt(\.|[[:space:]])/ {print $1, $2}' || true
+        yum --disablerepo='*' --enablerepo='salt-repo-3006-lts' list --showduplicates salt 2>/dev/null | awk '/^salt(\.|[[:space:]])/ {print $1, $2}' || true
         return 1
     fi
 }
