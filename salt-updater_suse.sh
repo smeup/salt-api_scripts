@@ -207,6 +207,11 @@ function install_salt_latest_bootstrap {
     fi
 }
 
+function extract_salt_version_number {
+    local version_output="${1:-}"
+    printf '%s\n' "$version_output" | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1
+}
+
 function install_salt_latest_repo {
     local packages
 
@@ -299,6 +304,7 @@ function start_service {
 
 function verify_installation {
     local resolved_binary
+    local after_version_number
 
     if [ "$INSTALL_METHOD" = "repo" ]; then
         resolved_binary=$(command -v salt-minion 2>/dev/null || true)
@@ -315,6 +321,17 @@ function verify_installation {
     AFTER_VERSION=$(get_salt_version "$SALT_BINARY")
     if [ -z "$AFTER_VERSION" ]; then
         echo "Errore: impossibile determinare la versione Salt dopo l'aggiornamento."
+        return 1
+    fi
+
+    after_version_number=$(extract_salt_version_number "$AFTER_VERSION")
+    if [ -z "$after_version_number" ]; then
+        echo "Errore: impossibile estrarre il numero di versione da: $AFTER_VERSION"
+        return 1
+    fi
+
+    if [ "$after_version_number" != "$SALT_VERSION" ]; then
+        echo "Errore: versione rilevata dopo l'aggiornamento: $after_version_number, attesa: $SALT_VERSION"
         return 1
     fi
 
