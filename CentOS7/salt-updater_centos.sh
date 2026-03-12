@@ -77,6 +77,7 @@ function show_installation_summary {
     echo "Metodo installazione rilevato: $INSTALL_METHOD"
     echo "Binario Salt usato per verifica: $SALT_BINARY"
     "$SALT_BINARY" --version 2>/dev/null || true
+    rpm -q salt-minion 2>/dev/null || true
 }
 
 function backup_keys {
@@ -93,20 +94,47 @@ function backup_keys {
     fi
 }
 
-function remove_old_salt {
-    systemctl stop salt-minion 2>/dev/null || true
+function stop_salt_service {
+    if ! systemctl list-unit-files | grep -q '^salt-minion\.service'; then
+        return 0
+    fi
+
     systemctl disable salt-minion 2>/dev/null || true
+    systemctl stop salt-minion 2>/dev/null || true
+
+    # Some old minion processes hang on SIGTERM and force systemd to wait the
+    # full TimeoutStopSec before sending SIGKILL.
+    if systemctl is-active --quiet salt-minion; then
+        systemctl kill --kill-who=all --signal=SIGKILL salt-minion 2>/dev/null || true
+        pkill -9 -f '(^|/)?salt-minion($| )' 2>/dev/null || true
+        sleep 2
+    fi
+
+    systemctl reset-failed salt-minion 2>/dev/null || true
+}
+
+function remove_old_salt {
+    stop_salt_service
     # Remove both salt-minion and the salt base package to avoid version conflicts
     yum remove -y salt-minion salt
     # Clean yum cache to avoid metadata issues
     yum clean all
     # Clean up old directories but keep config if not replacing completely (we restore anyway)
     rm -rf /etc/salt/pki/minion
+
+    # Also remove possible bootstrap leftovers in mixed installations.
+    rm -f /usr/local/bin/salt-minion /usr/local/bin/salt-call
 }
 
 function remove_old_salt_bootstrap {
-    systemctl stop salt-minion 2>/dev/null || true
-    systemctl disable salt-minion 2>/dev/null || true
+    stop_salt_service
+
+    # On old CentOS hosts it is common to have a mixed state: bootstrap markers
+    # plus an old RPM package still providing /usr/bin/salt-minion.
+    if rpm -q salt-minion >/dev/null 2>&1; then
+        yum remove -y salt-minion salt
+        yum clean all
+    fi
 
     for bin in /usr/local/bin/salt-minion /usr/local/bin/salt-call; do
         if [ -e "$bin" ] && ! rpm -qf "$bin" >/dev/null 2>&1; then
@@ -148,6 +176,27 @@ function install_new_salt {
         install_new_salt_repo
     else
         install_new_salt_bootstrap
+    fi
+}
+
+function verify_installation {
+    local resolved_binary
+    local version_output
+
+    resolved_binary=$(command -v salt-minion 2>/dev/null || true)
+    if [ -z "$resolved_binary" ]; then
+        echo "Errore: salt-minion non trovato nel PATH dopo l'aggiornamento."
+        return 1
+    fi
+
+    echo "Binario salt-minion attivo: $resolved_binary"
+    version_output=$("$resolved_binary" --version 2>&1 | tail -n1)
+    echo "$version_output"
+
+    if ! echo "$version_output" | grep -q "salt-minion $SALT_VERSION"; then
+        echo "Errore: versione Salt attiva diversa da $SALT_VERSION."
+        rpm -q salt-minion 2>/dev/null || true
+        return 1
     fi
 }
 
@@ -237,9 +286,11 @@ function install_dependencies {
         install_needed=true
     fi
     
+    echo "Configurazione repository CentOS 7..."
+    configure_repos_centos7
+
     if [ "$install_needed" = true ]; then
-        echo "Configurazione repo e installazione dipendenze..."
-        configure_repos_centos7
+        echo "Installazione dipendenze..."
         yum install -y nc curl
     fi
 }
@@ -282,6 +333,23 @@ function verify_network {
     echo "Connettività verso $MASTER e repository OK."
 }
 
+function verify_target_package_available {
+    local available_minion
+    local available_salt
+
+    available_minion=$(yum list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
+    available_salt=$(yum list --showduplicates salt 2>/dev/null | awk '/^salt[[:space:]]/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
+
+    if [ -z "$available_minion" ] || [ -z "$available_salt" ]; then
+        echo "Errore: la versione Salt $SALT_VERSION non risulta disponibile dai repository configurati."
+        echo "Versioni visibili per salt-minion:"
+        yum list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $1, $2}' || true
+        echo "Versioni visibili per salt:"
+        yum list --showduplicates salt 2>/dev/null | awk '/^salt[[:space:]]/ {print $1, $2}' || true
+        return 1
+    fi
+}
+
 # --- Main ---
 
 # -1. Rilevamento installazione
@@ -290,6 +358,7 @@ show_installation_summary
 
 # 0. Verifica prerequisiti di rete (Installa nc se serve, configurando repo)
 run_step "Verifica connettività verso $MASTER" verify_network
+run_step "Verifica disponibilita' Salt $SALT_VERSION nei repository" verify_target_package_available
 
 # 1. Backup
 run_step "Backup chiavi e configurazione" backup_keys
@@ -310,9 +379,8 @@ fi
 
 # 4. Ripristino
 run_step "Ripristino chiavi e avvio servizio" restore_keys
+run_step "Verifica versione installata" verify_installation
 
 rm -rf "$BACKUP_DIR"
 rm -f "$LOG_FILE"
-
-echo "Aggiornamento completato! Versione installata:"
-salt-minion --version
+echo "Aggiornamento completato!"
