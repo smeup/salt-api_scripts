@@ -27,8 +27,6 @@ curl -fsSL https://bit.ly/saltapicentos7 | sudo bash -s
 
 ### SUSE/Debian/Ubuntu
 
-Per aggiornare un `salt-minion` gia' installato, usando backup conservativo di configurazione e chiavi, con target fisso `3006.23`:
-
 ```bash
 curl -fsSL https://bit.ly/saltupds | sudo bash -s
 ```
