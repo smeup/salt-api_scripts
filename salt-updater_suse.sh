@@ -113,11 +113,13 @@ function get_salt_version {
 }
 
 function detect_installation_method {
-    local bootstrap_markers=(
+    local repo_markers=(
         /etc/apt/sources.list.d/salt.list
         /etc/apt/sources.list.d/salt.sources
         /etc/apt/keyrings/salt-archive-keyring.gpg
         /etc/zypp/repos.d/salt.repo
+    )
+    local bootstrap_markers=(
         /usr/local/bin/salt-minion
         /usr/local/bin/salt-call
     )
@@ -128,14 +130,6 @@ function detect_installation_method {
         return 1
     fi
 
-    local marker
-    for marker in "${bootstrap_markers[@]}"; do
-        if [ -e "$marker" ]; then
-            INSTALL_METHOD="bootstrap"
-            return 0
-        fi
-    done
-
     if command -v dpkg-query >/dev/null 2>&1 && dpkg-query -S "$SALT_BINARY" >/dev/null 2>&1; then
         INSTALL_METHOD="repo"
         return 0
@@ -145,6 +139,21 @@ function detect_installation_method {
         INSTALL_METHOD="repo"
         return 0
     fi
+
+    local marker
+    for marker in "${repo_markers[@]}"; do
+        if [ -e "$marker" ]; then
+            INSTALL_METHOD="repo"
+            return 0
+        fi
+    done
+
+    for marker in "${bootstrap_markers[@]}"; do
+        if [ -e "$marker" ]; then
+            INSTALL_METHOD="bootstrap"
+            return 0
+        fi
+    done
 
     INSTALL_METHOD="bootstrap"
 }
