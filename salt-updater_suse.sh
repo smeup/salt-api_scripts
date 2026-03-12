@@ -19,6 +19,7 @@ else
 fi
 
 SALT_VERSION="3006.23"
+SUSE_RPM_RELEASE="0"
 SUSE_TARGET_PACKAGES=(
     salt
     salt-minion
@@ -26,10 +27,12 @@ SUSE_TARGET_PACKAGES=(
 SUSE_LEGACY_PACKAGES=(
     python3-salt
 )
+SUSE_BROADCOM_REPO_ALIAS="salt-repo-lts"
+SUSE_BROADCOM_REPO_URL="https://packages.broadcom.com/artifactory/saltproject-rpm/"
 
 function usage {
     echo "Usage: $(basename "$0")" >&2
-    echo "Aggiorna salt-minion alla versione fissa $SALT_VERSION." >&2
+    echo "Aggiorna salt-minion alla versione fissa $SALT_VERSION-$SUSE_RPM_RELEASE su SUSE." >&2
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -206,35 +209,36 @@ function extract_salt_version_number {
     printf '%s\n' "$version_output" | grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1
 }
 
-function find_suse_salt_repo_alias {
-    local repo_file
-    local current_alias=""
+function ensure_suse_target_repo {
+    local pkg_pattern
 
-    for repo_file in /etc/zypp/repos.d/*.repo; do
-        [ -f "$repo_file" ] || continue
+    pkg_pattern="salt-minion-${SALT_VERSION}"
+    if zypper --non-interactive search -s "$pkg_pattern" 2>/dev/null | grep -q "$pkg_pattern"; then
+        return 0
+    fi
 
-        while IFS= read -r line; do
-            case "$line" in
-                \[*\])
-                    current_alias="${line#[}"
-                    current_alias="${current_alias%]}"
-                    ;;
-                baseurl=*)
-                    if printf '%s\n' "$line" | grep -Eq 'packages\.broadcom\.com/.*/saltproject-rpm|saltproject-rpm'; then
-                        printf '%s\n' "$current_alias"
-                        return 0
-                    fi
-                    ;;
-            esac
-        done < "$repo_file"
-    done
+    if zypper lr 2>/dev/null | awk -F'|' '
+        NF >= 3 {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+            print $2
+        }
+    ' | grep -qx "$SUSE_BROADCOM_REPO_ALIAS"; then
+        zypper --non-interactive modifyrepo --enable "$SUSE_BROADCOM_REPO_ALIAS"
+        zypper --non-interactive modifyrepo --refresh "$SUSE_BROADCOM_REPO_ALIAS"
+    else
+        zypper --non-interactive addrepo --refresh "$SUSE_BROADCOM_REPO_URL" "$SUSE_BROADCOM_REPO_ALIAS"
+    fi
 
-    return 1
+    zypper --gpg-auto-import-keys --non-interactive refresh
+
+    if ! zypper --non-interactive search -s "$pkg_pattern" 2>/dev/null | grep -q "$pkg_pattern"; then
+        echo "Errore: la versione Salt richiesta ($SALT_VERSION) non e' disponibile nei repository configurati."
+        return 1
+    fi
 }
 
 function install_salt_latest_repo {
     local packages
-    local repo_alias
     local package_args=()
     local package_name
     local remove_args=()
@@ -253,20 +257,12 @@ function install_salt_latest_repo {
     fi
 
     if command -v zypper >/dev/null 2>&1; then
-        packages=$(rpm -qa --qf '%{NAME}\n' | grep -E '^(salt|python3-salt)(-|$)' | sort -u | tr '\n' ' ')
-        if [ -z "$packages" ]; then
-            echo "Errore: nessun pacchetto Salt trovato tramite rpm."
-            return 1
-        fi
+        ensure_suse_target_repo
 
-        repo_alias=$(find_suse_salt_repo_alias 2>/dev/null || true)
-        if [ -z "$repo_alias" ]; then
-            echo "Errore: impossibile determinare l'alias del repository Salt dai file in /etc/zypp/repos.d."
-            return 1
-        fi
+        packages=$(rpm -qa --qf '%{NAME}\n' | grep -E '^(salt|python3-salt)(-|$)' | sort -u | tr '\n' ' ')
 
         for target_package in "${SUSE_TARGET_PACKAGES[@]}"; do
-            package_args+=("${target_package}-${SALT_VERSION}")
+            package_args+=("${target_package}-${SALT_VERSION}-${SUSE_RPM_RELEASE}")
         done
 
         while IFS= read -r package_name; do
@@ -278,16 +274,11 @@ function install_salt_latest_repo {
             esac
         done < <(printf '%s\n' "$packages" | tr ' ' '\n' | sed '/^$/d')
 
-        if [ "${#package_args[@]}" -eq 0 ]; then
-            echo "Errore: nessun pacchetto Salt aggiornabile identificato per zypper."
-            return 1
-        fi
-
-        zypper refresh
+        zypper --gpg-auto-import-keys --non-interactive refresh
         if [ "${#remove_args[@]}" -gt 0 ]; then
             zypper --non-interactive remove -y "${remove_args[@]}"
         fi
-        zypper --non-interactive install --allow-vendor-change --from "$repo_alias" "${package_args[@]}"
+        zypper --non-interactive install --allow-vendor-change "${package_args[@]}"
         return 0
     fi
 
