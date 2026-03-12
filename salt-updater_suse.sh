@@ -75,6 +75,21 @@ function run_step {
     fi
 }
 
+function run_step_stateful {
+    local msg="$1"
+    shift
+
+    printf "[..] %s...\n" "$msg"
+
+    if "$@" > "$LOG_FILE" 2>&1; then
+        printf "\033[K[OK] %s\n" "$msg"
+    else
+        printf "\033[K[ERROR] %s\n" "$msg"
+        cat "$LOG_FILE"
+        exit 1
+    fi
+}
+
 function check_existing_installation {
     if ! command -v salt-minion >/dev/null 2>&1 && ! command -v salt-call >/dev/null 2>&1; then
         echo "Errore: salt-minion non risulta installato su questo host."
@@ -284,7 +299,7 @@ function verify_installation {
 }
 
 run_step "Verifica installazione esistente" check_existing_installation
-run_step "Rilevamento metodo installazione" detect_installation_method
+run_step_stateful "Rilevamento metodo installazione" detect_installation_method
 show_installation_summary
 run_step "Backup configurazione e chiavi" backup_salt_state
 run_step "Arresto servizio salt-minion" stop_service
@@ -295,7 +310,7 @@ else
     run_step "Aggiornamento Salt alla versione $SALT_VERSION dai repository configurati" install_salt_latest
 fi
 run_step "Riavvio servizio" start_service
-run_step "Verifica versione installata" verify_installation
+run_step_stateful "Verifica versione installata" verify_installation
 
 if [ -n "$BEFORE_VERSION" ] && [ -n "$AFTER_VERSION" ] && [ "$BEFORE_VERSION" = "$AFTER_VERSION" ]; then
     echo "Nota: la versione rilevata prima e dopo l'aggiornamento e' la stessa."
