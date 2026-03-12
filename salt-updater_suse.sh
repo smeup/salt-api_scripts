@@ -200,11 +200,7 @@ function install_salt_latest_bootstrap {
     fi
 
     curl -fsSL https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
-    if [ -f /etc/zypp/repos.d/salt.repo ]; then
-        sh install_salt.sh -r -P -X stable "$SALT_VERSION"
-    else
-        sh install_salt.sh -P -X stable "$SALT_VERSION"
-    fi
+    sh install_salt.sh -P -X stable "$SALT_VERSION"
 }
 
 function extract_salt_version_number {
