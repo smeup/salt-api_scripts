@@ -253,11 +253,29 @@ function install_dependencies {
 function check_connection {
     local host="$1"
     local port="$2"
-    if ! nc -z -w 5 "$host" "$port"; then
-        echo "Errore: Impossibile raggiungere $host sulla porta $port. Verifica la connessione e riprova."
-        rm -rf "$BACKUP_DIR"
-        return 1
+
+    if command -v nc > /dev/null 2>&1; then
+        if nc -z -w 5 "$host" "$port" > /dev/null 2>&1; then
+            return 0
+        fi
+
+        if nc -w 5 "$host" "$port" < /dev/null > /dev/null 2>&1; then
+            return 0
+        fi
     fi
+
+    if timeout 5 bash -c "</dev/tcp/$host/$port" > /dev/null 2>&1; then
+        return 0
+    fi
+
+    if [ -n "$(command -v getent 2>/dev/null)" ] && ! getent hosts "$host" > /dev/null 2>&1; then
+        echo "Errore: impossibile risolvere il nome host $host."
+    else
+        echo "Errore: Impossibile raggiungere $host sulla porta $port. Verifica la connessione e riprova."
+    fi
+
+    rm -rf "$BACKUP_DIR"
+    return 1
 }
 
 function check_https_reachability {
