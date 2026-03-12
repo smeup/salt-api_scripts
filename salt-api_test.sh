@@ -15,7 +15,7 @@ else
 fi
 
 function usage {
-	echo "Usage: `basename "$0"` [MINION-ID] [USER] [PASSWORD]" >&2
+	echo "Usage: `basename "$0"` [MINION-ID] [USER] [PASSWORD] [MASTER]" >&2
 	echo "Note: If arguments are omitted, they will be requested interactively." >&2
 }
 
@@ -52,17 +52,14 @@ function check_mtu {
 }
 check_mtu
 
-# Arguments are now optional, but if provided they must be all 3
-if [ $# -gt 0 ] && [ $# -ne 3 ]; then
-    usage
-    exit 0
-fi
-
 MINION=$1
 USERNAME=$2
 PASSWORD=$3
+MASTER=$4
+SALT_VERSION="3006.23"
 
-if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+# Interactive Prompt Logic
+if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER" ]; then
     # Se lo script è in pipe, dobbiamo leggere dal terminale (/dev/tty)
     # Altrimenti possiamo usare lo stdin standard (/dev/stdin)
     [ -t 0 ] && TTY="/dev/stdin" || TTY="/dev/tty"
@@ -79,8 +76,6 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
 
     if [ -z "$PASSWORD" ]; then
         printf "Inserisci password: " > /dev/tty
-        # Usiamo stty per nascondere l'input se leggiamo da /dev/tty, 
-        # oppure read -s se siamo in un terminale normale (/dev/stdin)
         if [ "$TTY" = "/dev/tty" ]; then
             stty -echo < /dev/tty
             read -r PASSWORD < /dev/tty
@@ -91,13 +86,20 @@ if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
             printf "\n"
         fi
     fi
+
+    if [ -z "$MASTER" ]; then
+        DEFAULT_MASTER="rm-test.smeup.com"
+        printf "Inserisci indirizzo Salt Master [$DEFAULT_MASTER]: " > /dev/tty
+        read -r MASTER < "$TTY"
+        MASTER=${MASTER:-$DEFAULT_MASTER}
+    fi
 fi
 
-if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
-    printf "\nErrore: Tutti i campi (minion, username, password) sono obbligatori.\n" >&2
+if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER" ]; then
+    printf "\nErrore: Tutti i campi sono obbligatori.\n" >&2
     exit 1
 fi
-MASTER=rm-test.smeup.com
+
 LOG_FILE=$(mktemp)
 API_LOG=$(mktemp)
 
@@ -164,8 +166,13 @@ function install_salt_minion {
         zypper remove -y busybox-which 2>/dev/null || true
     fi
 
+    echo "Installazione versione Salt: $SALT_VERSION"
     curl -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
-    sh install_salt.sh -P -X stable 3006.23
+    # Use -P (pip based install if needed, though usually packages) - actually, -P allows pip packages, but 
+    # bootstrap usually defaults to packages. 
+    # The original script used: sh install_salt.sh -P -X stable 3006.16
+    # effectively passing "stable <version>" as arguments
+    sh install_salt.sh -P -X stable "$SALT_VERSION"
 }
 
 function stop_services {
@@ -277,13 +284,13 @@ run_step "Pulizia configurazione precedente" clean_environment
 run_step "Installazione in corso di jq" install_jq_pkg
 
 # 3. Install Salt Minion
-run_step "Installazione in corso di Salt Minion" install_salt_minion
+run_step "Installazione in corso di Salt Minion ($SALT_VERSION)" install_salt_minion
 
 # 4. Stop services (part of installation/cleanup really, but safer to do before config)
 run_step "Arresto servizi" stop_services
 
 # 5. Register Minion
-run_step "Registrazione in corso" register_minion
+run_step "Registrazione in corso su $MASTER" register_minion
 
 # 6. Configure and Start
 run_step "Configurazione e avvio servizio" configure_minion

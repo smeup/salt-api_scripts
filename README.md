@@ -37,28 +37,17 @@ curl -fsSL https://bit.ly/saltapitest | sudo bash -s
 curl -fsSL https://bit.ly/saltapitest | sudo bash -s MINION_ID USERNAME PASSWORD
 ```
 
-## Development Installation
+### Testing script behavior
 
-For development purposes, if you need to install a specific Salt version or use a different Salt Master, you can use salt-api_dev.sh.
+`salt-api_test.sh` keeps the interactive master selection, with default `rm-test.smeup.com`.
 
-```bash
-curl -fsSL https://bit.ly/saltapidev | sudo bash -s
-```
-
-### Features
-
-- **Interactive Master Selection**: Defaults to `rm.smeup.com` but allows override.
-- **Smart Version Selection**:
-  - Fetches available versions from GitHub.
-  - Filters and displays the last **6 versions of the 3006.x (LTS)** branch.
-  - If no version is entered, installs the latest available `3006.x`.
-  - Allows manual version entry if needed.
+The Salt version is fixed to `3006.23`.
 
 ## Utility
 
-### Update Salt bootstrap installation
+### Update Salt SUSE/Debian/Ubuntu
 
-Per aggiornare un `salt-minion` gia' installato via `bootstrap-salt.sh` all'ultima versione stable disponibile, usando backup conservativo di configurazione e chiavi:
+Per aggiornare un `salt-minion` gia' installato, usando backup conservativo di configurazione e chiavi, con target fisso `3006.23`:
 
 ```bash
 curl -fsSL https://bit.ly/saltapi-upd | sudo bash -s
@@ -67,7 +56,7 @@ curl -fsSL https://bit.ly/saltapi-upd | sudo bash -s
 In locale:
 
 ```bash
-sudo bash salt-update_latest.sh
+sudo bash salt-updater_suse.sh
 ```
 
 ### Check master response
@@ -102,7 +91,7 @@ curl -fsSL https://bit.ly/saltapicentos7 | sudo bash -s
 
 ### CentOS 7 Updater Script
 
-This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.20**, preserving existing keys and configuration.
+This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.23**, preserving existing keys and configuration.
 
 **Prerequisites:**
 
@@ -115,8 +104,15 @@ This script automates the upgrade of Salt Minion on CentOS 7 to version **3006.2
 curl -fsSL https://bit.ly/saltupdate | sudo bash -s
 ```
 
+In locale:
+
+```bash
+sudo bash CentOS7/updater_centos.sh
+```
+
 **Tested and working on:**
 
+- salt-minion 3003.3
 - salt-minion 2018.3.3
 - salt-minion 2019.2.0
 
@@ -125,5 +121,5 @@ curl -fsSL https://bit.ly/saltupdate | sudo bash -s
 1. Checks connectivity to the Master.
 2. Backs up keys and config.
 3. Removes old Salt Minion.
-4. Installs Salt Minion 3006.20.
+4. Installs Salt Minion 3006.23.
 5. Restores keys and restarts the service.
