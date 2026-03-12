@@ -338,14 +338,14 @@ function verify_target_package_available {
     local available_salt
 
     available_minion=$(yum list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
-    available_salt=$(yum list --showduplicates salt 2>/dev/null | awk '/^salt[[:space:]]/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
+    available_salt=$(yum list --showduplicates salt 2>/dev/null | awk '/^salt(\.|[[:space:]])/ {print $2}' | grep "^$SALT_VERSION" | head -n1)
 
     if [ -z "$available_minion" ] || [ -z "$available_salt" ]; then
         echo "Errore: la versione Salt $SALT_VERSION non risulta disponibile dai repository configurati."
         echo "Versioni visibili per salt-minion:"
         yum list --showduplicates salt-minion 2>/dev/null | awk '/salt-minion/ {print $1, $2}' || true
         echo "Versioni visibili per salt:"
-        yum list --showduplicates salt 2>/dev/null | awk '/^salt[[:space:]]/ {print $1, $2}' || true
+        yum list --showduplicates salt 2>/dev/null | awk '/^salt(\.|[[:space:]])/ {print $1, $2}' || true
         return 1
     fi
 }
