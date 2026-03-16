@@ -19,6 +19,7 @@ SALT_VERSION="3006.23"
 SALT_REPO_BASEURL_PRIMARY="https://packages.broadcom.com/artifactory/saltproject-rpm/"
 SALT_GPGKEY_PRIMARY="https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public"
 SALT_GPGKEY_LOCAL="/etc/pki/rpm-gpg/RPM-GPG-KEY-saltproject"
+CENTOS_VAULT_BASEURL="http://vault.centos.org"
 
 
 BACKUP_DIR=$(mktemp -d)
@@ -241,9 +242,10 @@ function configure_repos_centos7 {
 
     # 2. Restore/Ensure CentOS 7 Vault (original logic)
     sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
-    sed -i 's|^#baseurl=http://mirror.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
-    sed -i 's|^baseurl=http://mirror.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
-    sed -i 's|^baseurl=http://vault.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i "s|^#baseurl=http://mirror.centos.org|baseurl=${CENTOS_VAULT_BASEURL}|g" /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i "s|^baseurl=http://mirror.centos.org|baseurl=${CENTOS_VAULT_BASEURL}|g" /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i "s|^baseurl=https://vault.centos.org|baseurl=${CENTOS_VAULT_BASEURL}|g" /etc/yum.repos.d/CentOS-* 2>/dev/null || true
+    sed -i "s|^baseurl=http://vault.centos.org|baseurl=${CENTOS_VAULT_BASEURL}|g" /etc/yum.repos.d/CentOS-* 2>/dev/null || true
     
     # 3. Disable old/broken repos definitively (rmmagent AND legacy saltstack)
     for repo_file in /etc/yum.repos.d/rmmagent.repo /etc/yum.repos.d/saltstack.repo; do
@@ -326,14 +328,14 @@ function check_connection {
     return 1
 }
 
-function check_https_reachability {
+function check_repo_reachability {
     local url="$1"
     # Try to get the HTTP status code. 2xx or 3xx are considered success.
     local status_code
     status_code=$(curl -L -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "$url")
     
     if [[ ! "$status_code" =~ ^[23] ]]; then
-        echo "Errore: Impossibile raggiungere il repository HTTPS: $url (Status code: $status_code)"
+        echo "Errore: Impossibile raggiungere il repository: $url (Status code: $status_code)"
         echo "Non aggiorno perche non riesco a raggiungere il sito."
         rm -rf "$BACKUP_DIR"
         return 1
@@ -346,10 +348,10 @@ function verify_network {
     check_connection "$MASTER" 4505 || return 1
     check_connection "$MASTER" 4506 || return 1
     
-    echo "Verifica connettività verso i repository HTTPS..."
-    check_https_reachability "https://vault.centos.org" || return 1
-    check_https_reachability "https://packages.broadcom.com" || return 1
-    check_https_reachability "https://github.com" || return 1
+    echo "Verifica connettività verso i repository..."
+    check_repo_reachability "$CENTOS_VAULT_BASEURL" || return 1
+    check_repo_reachability "https://packages.broadcom.com" || return 1
+    check_repo_reachability "https://github.com" || return 1
 
     echo "Connettività verso $MASTER e repository OK."
 }
