@@ -39,7 +39,10 @@ curl -fsSL https://bit.ly/saltupdc | sudo bash -s
 
 **Tested and working on:**
 
+CentOS 7:
+
 - salt-minion 3003.3
+- salt-minion 3000.5
 - salt-minion 2018.3.3
 - salt-minion 2019.2.0
 
