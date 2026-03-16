@@ -16,10 +16,8 @@ fi
 
 # Versione specifica richiesta
 SALT_VERSION="3006.23"
-SALT_REPO_BASEURL_PRIMARY="https://packages.broadcom.com/artifactory/saltproject-rpm/redhat/7/x86_64/latest/"
-SALT_REPO_BASEURL_FALLBACK="https://repo.saltproject.io/salt/py3/redhat/7/x86_64/latest/"
+SALT_REPO_BASEURL_PRIMARY="https://packages.broadcom.com/artifactory/saltproject-rpm/"
 SALT_GPGKEY_PRIMARY="https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public"
-SALT_GPGKEY_FALLBACK="https://repo.saltproject.io/salt/py3/redhat/7/x86_64/latest/SALTSTACK-GPG-KEY.pub"
 SALT_GPGKEY_LOCAL="/etc/pki/rpm-gpg/RPM-GPG-KEY-saltproject"
 
 
@@ -116,13 +114,6 @@ function configure_salt_repo {
     local selected_baseurl="$SALT_REPO_BASEURL_PRIMARY"
     local selected_gpgkey="$SALT_GPGKEY_PRIMARY"
 
-    # Old yum/urlgrabber stacks on CentOS 7 can fail on generic Artifactory
-    # endpoints that rely on redirects. Probe the explicit repo metadata path.
-    if ! curl -L -s -f --connect-timeout 10 "${SALT_REPO_BASEURL_PRIMARY}repodata/repomd.xml" > /dev/null; then
-        selected_baseurl="$SALT_REPO_BASEURL_FALLBACK"
-        selected_gpgkey="$SALT_GPGKEY_FALLBACK"
-    fi
-
     if ! curl -L -s -f --connect-timeout 10 "$selected_gpgkey" -o "$SALT_GPGKEY_LOCAL"; then
         echo "Errore: impossibile scaricare la chiave GPG Salt da $selected_gpgkey"
         return 1
@@ -150,10 +141,45 @@ EOF
 }
 
 function install_new_salt_repo {
+    local arch
+    local download_dir
+    local salt_pkg
+    local minion_pkg
+
     configure_salt_repo
 
-    # Install specific version
-    yum install -y "salt-minion-$SALT_VERSION*" "salt-$SALT_VERSION*"
+    # Install specific version from repository first.
+    if yum install -y "salt-minion-$SALT_VERSION*" "salt-$SALT_VERSION*"; then
+        return 0
+    fi
+
+    # Fallback for older yum/urlgrabber stacks that fail on HTTP redirects.
+    arch=$(uname -m)
+    download_dir=$(mktemp -d)
+    salt_pkg="salt-${SALT_VERSION}-0.${arch}.rpm"
+    minion_pkg="salt-minion-${SALT_VERSION}-0.${arch}.rpm"
+
+    if ! curl -L -f --retry 3 --connect-timeout 10 \
+        "${SALT_REPO_BASEURL_PRIMARY}${salt_pkg}" -o "${download_dir}/${salt_pkg}"; then
+        rm -rf "$download_dir"
+        echo "Errore: download pacchetto ${salt_pkg} fallito."
+        return 1
+    fi
+
+    if ! curl -L -f --retry 3 --connect-timeout 10 \
+        "${SALT_REPO_BASEURL_PRIMARY}${minion_pkg}" -o "${download_dir}/${minion_pkg}"; then
+        rm -rf "$download_dir"
+        echo "Errore: download pacchetto ${minion_pkg} fallito."
+        return 1
+    fi
+
+    if ! yum localinstall -y "${download_dir}/${salt_pkg}" "${download_dir}/${minion_pkg}"; then
+        rm -rf "$download_dir"
+        echo "Errore: installazione locale pacchetti Salt fallita."
+        return 1
+    fi
+
+    rm -rf "$download_dir"
 }
 
 function verify_installation {
@@ -322,10 +348,7 @@ function verify_network {
     
     echo "Verifica connettività verso i repository HTTPS..."
     check_https_reachability "https://vault.centos.org" || return 1
-    if ! check_https_reachability "https://packages.broadcom.com"; then
-        echo "Broadcom non raggiungibile, provo repository ufficiale Salt."
-        check_https_reachability "https://repo.saltproject.io" || return 1
-    fi
+    check_https_reachability "https://packages.broadcom.com" || return 1
     check_https_reachability "https://github.com" || return 1
 
     echo "Connettività verso $MASTER e repository OK."
