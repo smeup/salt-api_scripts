@@ -16,6 +16,11 @@ fi
 
 # Versione specifica richiesta
 SALT_VERSION="3006.23"
+SALT_REPO_BASEURL_PRIMARY="https://packages.broadcom.com/artifactory/saltproject-rpm/redhat/7/x86_64/latest/"
+SALT_REPO_BASEURL_FALLBACK="https://repo.saltproject.io/salt/py3/redhat/7/x86_64/latest/"
+SALT_GPGKEY_PRIMARY="https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public"
+SALT_GPGKEY_FALLBACK="https://repo.saltproject.io/salt/py3/redhat/7/x86_64/latest/SALTSTACK-GPG-KEY.pub"
+SALT_GPGKEY_LOCAL="/etc/pki/rpm-gpg/RPM-GPG-KEY-saltproject"
 
 
 BACKUP_DIR=$(mktemp -d)
@@ -108,18 +113,35 @@ function remove_old_salt {
 }
 
 function configure_salt_repo {
+    local selected_baseurl="$SALT_REPO_BASEURL_PRIMARY"
+    local selected_gpgkey="$SALT_GPGKEY_PRIMARY"
+
+    # Old yum/urlgrabber stacks on CentOS 7 can fail on generic Artifactory
+    # endpoints that rely on redirects. Probe the explicit repo metadata path.
+    if ! curl -L -s -f --connect-timeout 10 "${SALT_REPO_BASEURL_PRIMARY}repodata/repomd.xml" > /dev/null; then
+        selected_baseurl="$SALT_REPO_BASEURL_FALLBACK"
+        selected_gpgkey="$SALT_GPGKEY_FALLBACK"
+    fi
+
+    if ! curl -L -s -f --connect-timeout 10 "$selected_gpgkey" -o "$SALT_GPGKEY_LOCAL"; then
+        echo "Errore: impossibile scaricare la chiave GPG Salt da $selected_gpgkey"
+        return 1
+    fi
+
+    rpm --import "$SALT_GPGKEY_LOCAL"
+
     # Configure only Salt 3006 LTS repository before any availability checks.
     cat <<EOF > /etc/yum.repos.d/salt.repo
 [salt-repo-3006-lts]
 name=Salt Repo for Salt v3006 LTS
-baseurl=https://packages.broadcom.com/artifactory/saltproject-rpm/
+baseurl=$selected_baseurl
 skip_if_unavailable=True
 priority=10
 enabled=1
 enabled_metadata=1
 gpgcheck=1
 exclude=*3007* *3008* *3009* *3010*
-gpgkey=https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public
+gpgkey=file://$SALT_GPGKEY_LOCAL
 EOF
 
     # Refresh cache after switching repo configuration.
@@ -300,7 +322,10 @@ function verify_network {
     
     echo "Verifica connettività verso i repository HTTPS..."
     check_https_reachability "https://vault.centos.org" || return 1
-    check_https_reachability "https://packages.broadcom.com" || return 1
+    if ! check_https_reachability "https://packages.broadcom.com"; then
+        echo "Broadcom non raggiungibile, provo repository ufficiale Salt."
+        check_https_reachability "https://repo.saltproject.io" || return 1
+    fi
     check_https_reachability "https://github.com" || return 1
 
     echo "Connettività verso $MASTER e repository OK."
