@@ -1,5 +1,7 @@
 # Salt API scripts
 
+Per una mappa visuale dei flussi degli script, vedi `SCRIPT_FLOWCHARTS.md`.
+
 This repository is for install salt-minion automatically, using salt-api, with a script.
 
 To use these scripts, please follow this guide.
