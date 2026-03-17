@@ -11,7 +11,6 @@ Questo file riassume, con diagrammi Mermaid, cosa fa ogni script della repo.
 | `salt-updater_suse.sh` | Aggiorna Salt su openSUSE/Debian/Ubuntu alla `3006.23` preservando configurazione e chiavi |
 | `CentOS7/salt-api_centos7.sh` | Registra e installa un minion Salt su CentOS 7, con scelta interattiva della versione |
 | `CentOS7/salt-updater_centos.sh` | Aggiorna Salt su CentOS 7 alla `3006.23` usando repo Broadcom/Vault e ripristinando chiavi |
-| `CentOS7/salt-updater-checker_centos.sh` | Non aggiorna nulla: verifica solo che CentOS 7 e i repository permettano l'upgrade target |
 
 ## 1. `salt-api_prod.sh`
 
@@ -176,30 +175,6 @@ flowchart TD
 
 Questo è lo script di upgrade vero per CentOS 7.
 
-## 6. `CentOS7/salt-updater-checker_centos.sh`
-
-```mermaid
-flowchart TD
-    A[Avvio script] --> B{Utente root e CentOS 7?}
-    B -- No --> BX[Esce con codice errore dedicato]
-    B -- Si --> C[Mostra installazione Salt corrente]
-    C --> D[Configura repo CentOS 7 verso Vault]
-    D --> E[Verifica raggiungibilita Vault]
-    E --> F[Verifica raggiungibilita packages.broadcom.com]
-    F --> G{curl disponibile?}
-    G -- No --> GX[Esce con codice RC_CURL_MISSING]
-    G -- Si --> H[Scarica chiave GPG Salt]
-    H --> I[Importa chiave rpm]
-    I --> J[Scrive salt.repo 3006 LTS]
-    J --> K[Fa yum makecache]
-    K --> L[Cerca salt e salt-minion 3006.23]
-    L --> M{Entrambi trovati?}
-    M -- No --> MX[Esce con RC_TARGET_VERSION_NOT_AVAILABLE]
-    M -- Si --> N[Stampa successo e RET_CODE=0]
-```
-
-Questo script serve come “pre-check”: verifica in anticipo se un host CentOS 7 è pronto per l'aggiornamento, senza rimuovere o installare nulla.
-
 ## Relazioni tra gli script
 
 ```mermaid
@@ -209,12 +184,9 @@ flowchart LR
     C[salt-updater_suse.sh] --> C1[Aggiornamento Salt su Linux moderni]
     D[CentOS7/salt-api_centos7.sh] --> D1[Installazione e registrazione minion su CentOS 7]
     E[CentOS7/salt-updater_centos.sh] --> E1[Aggiornamento Salt su CentOS 7]
-    F[CentOS7/salt-updater-checker_centos.sh] --> F1[Pre-check upgrade CentOS 7]
 
     A1 --> G[Usano salt-api per creare chiavi e configurare il minion]
     D1 --> G
     C1 --> H[Preservano chiavi e configurazione esistenti]
     E1 --> H
-    F1 --> I[Verifica solo repo e prerequisiti]
 ```
-
