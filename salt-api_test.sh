@@ -56,7 +56,7 @@ MINION=$1
 USERNAME=$2
 PASSWORD=$3
 MASTER=$4
-SALT_VERSION="3006.23"
+SALT_VERSION="3006.25"
 
 # Interactive Prompt Logic
 if [ -z "$MINION" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$MASTER" ]; then

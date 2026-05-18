@@ -165,7 +165,7 @@ function install_salt_minion {
     fi
 
     curl -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
-    sh install_salt.sh -P -X stable 3006.23
+    sh install_salt.sh -P -X stable 3006.25
 }
 
 function stop_services {

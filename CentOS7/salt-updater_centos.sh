@@ -15,7 +15,7 @@ else
 fi
 
 # Versione specifica richiesta
-SALT_VERSION="3006.23"
+SALT_VERSION="3006.25"
 SALT_REPO_BASEURL_PRIMARY="https://packages.broadcom.com/artifactory/saltproject-rpm/"
 SALT_GPGKEY_PRIMARY="https://packages.broadcom.com/artifactory/api/security/keypair/SaltProjectKey/public"
 SALT_GPGKEY_LOCAL="/etc/pki/rpm-gpg/RPM-GPG-KEY-saltproject"
